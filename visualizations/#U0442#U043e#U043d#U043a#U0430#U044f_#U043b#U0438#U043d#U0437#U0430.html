@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Тонкая линза — геометрическая оптика</title>
+  <style>
+    :root{--bg:#0f1724;--panel:#0b1220;--accent:#60a5fa;--muted:#94a3b8;--card:#021127}
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,var(--bg),#041021);color:#e6eef8}
+    .app{display:grid;grid-template-columns:360px 1fr;gap:18px;padding:18px;height:100vh;box-sizing:border-box}
+    .panel{background:linear-gradient(180deg,var(--panel),#071426);padding:14px;border-radius:12px;box-shadow:0 8px 20px rgba(2,6,23,.6);overflow:auto}
+    h1{font-size:18px;margin:0 0 8px}
+    label{display:block;font-size:13px;color:var(--muted);margin-top:10px}
+    .row{display:flex;gap:8px;align-items:center}
+    input[type=range]{width:100%}
+    input[type=number]{width:120px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,.06);background:transparent;color:inherit}
+    .small{font-size:12px;color:var(--muted)}
+    canvas{width:100%;height:100%;border-radius:12px;background:linear-gradient(180deg,#081426,#041021);display:block}
+    .controls{margin-top:8px}
+    .btn {
+  background: transparent;
+  border: 1px solid #60a5fa;   /* яркая рамка */
+  color: #60a5fa;              /* яркий текст */
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn:hover {
+  background: #60a5fa;         /* подсветка при наведении */
+  color: #0f1724;              /* цвет текста на контрастном фоне */
+}
+
+    footer{font-size:12px;color:var(--muted);margin-top:12px}
+    .top-row{display:flex;justify-content:space-between;align-items:center}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="panel">
+      <div class="top-row">
+        <h1>Тонкая линза</h1>
+      </div>
+
+      <div class="controls">
+        <label>Фокусное расстояние f (мм)
+          <div class="row"><input id="fRange" type="range" min="-200" max="200" step="1" value="100" /><input id="fNum" type="number" value="100" /></div>
+        </label>
+
+        <label>Расположение предмета do (мм)
+          <div class="row"><input id="dRange" type="range" min="10" max="1000" step="1" value="250" /><input id="dNum" type="number" value="250" /></div>
+        </label>
+
+        <label>Высота предмета h (мм)
+          <div class="row"><input id="hRange" type="range" min="1" max="200" step="1" value="60" /><input id="hNum" type="number" value="60" /></div>
+        </label>
+
+        <label>Масштаб (мм → px)
+          <div class="row"><input id="scaleRange" type="range" min="0.1" max="2" step="0.1" value="0.8" /><input id="scaleNum" type="number" value="0.8" step="0.1" /></div>
+          <div class="small">Уменьшает/увеличивает отображаемый масштаб (мм на пиксель)</div>
+        </label>
+
+        <label class="row"><input id="showRays" type="checkbox" checked /> <span style="margin-left:8px">Показывать основные лучи</span></label>
+
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="reset" class="btn">Сброс</button>
+          <button id="swap" class="btn">Инвертировать линзу (положительная/отрицательная)</button>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="small">Результаты (расчёт):</div>
+          <div id="results" class="small" style="margin-top:6px">—</div>
+        </div>
+
+        <footer>
+          Лучи: 1) через центр — не отклоняется; 2) параллельно оптической оси → после линзы проходит через фокус; 3) через фокус → после линзы идёт параллельно.
+        </footer>
+      </div>
+    </div>
+
+    <div style="position:relative;">
+      <canvas id="c"></canvas>
+    </div>
+  </div>
+
+  <script>
+        const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+        const fRange = document.getElementById('fRange'); const fNum = document.getElementById('fNum');
+    const dRange = document.getElementById('dRange'); const dNum = document.getElementById('dNum');
+    const hRange = document.getElementById('hRange'); const hNum = document.getElementById('hNum');
+    const scaleRange = document.getElementById('scaleRange'); const scaleNum = document.getElementById('scaleNum');
+    const showRays = document.getElementById('showRays'); const showImage = document.getElementById('showImage');
+    const results = document.getElementById('results'); const resetBtn = document.getElementById('reset'); const swapBtn = document.getElementById('swap');
+
+        function fitCanvas(){
+      canvas.width = canvas.clientWidth * devicePixelRatio;
+      canvas.height = canvas.clientHeight * devicePixelRatio;
+      ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    }
+    window.addEventListener('resize', ()=>{fitCanvas(); draw();});
+    fitCanvas();
+
+        function link(range, num){
+      range.addEventListener('input', ()=>{ num.value = range.value; draw(); });
+      num.addEventListener('change', ()=>{ range.value = num.value; draw(); });
+    }
+    link(fRange,fNum); link(dRange,dNum); link(hRange,hNum); link(scaleRange,scaleNum);
+
+    resetBtn.addEventListener('click', ()=>{
+      fRange.value = 100; fNum.value=100; dRange.value=250; dNum.value=250; hRange.value=60; hNum.value=60; scaleRange.value=0.8; scaleNum.value=0.8; draw();
+    });
+
+    swapBtn.addEventListener('click', ()=>{ fRange.value = -fRange.value; fNum.value = fRange.value; draw(); });
+
+    showRays.addEventListener('change', draw);
+
+
+        function draw(){
+      fitCanvas();
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+            const W = canvas.clientWidth; const H = canvas.clientHeight;
+      const mm2px = parseFloat(scaleNum.value) * 1.0; 
+            const centerX = W/2; const centerY = H/2;
+      const lensX = centerX; 
+            const f = parseFloat(fNum.value);       const do_ = parseFloat(dNum.value);       const h = parseFloat(hNum.value); 
+            function mx(m){ return lensX + m*mm2px; }       function my(y){ return centerY - y*mm2px; }
+
+            drawAxis();
+
+            drawLens();
+
+            const objX = lensX - do_*mm2px; const objTopY = my(h);
+
+                  let di = null; let mag = null; let isVirtual = false;
+      if (Math.abs(1/f) < 1e-12 && Math.abs(f) > 1e-12){ di = Infinity; }
+      else if (f === 0){ di = NaN; }
+      else{
+                const inv = 1/f - 1/do_;
+        if (Math.abs(inv) < 1e-12) { di = Infinity; }
+        else { di = 1 / inv; }
+      }
+      if (di !== null && isFinite(di)){
+        mag = - di / do_;
+        isVirtual = (di < 0);
+      }
+
+            const diText = (di===Infinity)?'∞':(di===null)?'—':(isNaN(di)?'н/д':di.toFixed(2));
+      const magText = (mag===null)?'—':mag.toFixed(3);
+      results.innerHTML = `f = ${f.toFixed(1)} мм • do = ${do_.toFixed(1)} мм • di = ${diText} мм • масштаб изображения = ${magText}`;
+
+            ctx.lineWidth=2; ctx.strokeStyle = '#9bdcff'; ctx.beginPath(); ctx.moveTo(objX, centerY); ctx.lineTo(objX, objTopY); ctx.stroke();
+      ctx.fillStyle='#9bdcff'; ctx.font='12px monospace'; ctx.fillText('Предмет', objX-40, objTopY-6);
+
+            if (di !== null && isFinite(di)){
+        const imgX = lensX + di*mm2px; const imgTopY = my(h*mag || 0);
+                ctx.lineWidth=2; ctx.strokeStyle = isVirtual ? 'rgba(255,150,150,0.8)' : '#ffd166';
+        ctx.beginPath(); ctx.moveTo(imgX, centerY); ctx.lineTo(imgX, imgTopY); ctx.stroke();
+        ctx.fillStyle = isVirtual ? 'rgba(255,150,150,0.9)' : '#ffd166';
+        ctx.fillText(isVirtual? 'Виртуальное изображение' : 'Изображение', imgX+6, imgTopY-6);
+      }
+
+            const f1x = lensX - f*mm2px; const f2x = lensX + f*mm2px;
+      ctx.fillStyle='rgba(96,165,250,0.9)'; ctx.beginPath(); ctx.arc(f2x, centerY, 4,0,Math.PI*2); ctx.fill(); ctx.fillText('F', f2x+6, centerY-6);
+      ctx.beginPath(); ctx.arc(f1x, centerY, 4,0,Math.PI*2); ctx.fill(); ctx.fillText("F'", f1x-18, centerY-6);
+
+            if (showRays.checked){ drawRays(); }
+
+            function drawAxis(){
+        ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.beginPath(); ctx.moveTo(0,centerY); ctx.lineTo(W,centerY); ctx.stroke();
+                ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.font='11px monospace';
+        for(let mm=-Math.ceil(W/(mm2px))/2; mm<Math.ceil(W/(mm2px))/2; mm+=50){
+          const x = mx(mm);
+          ctx.fillRect(x-0.5, centerY-3,1,6);
+          if (mm%100===0) ctx.fillText(`${mm} мм`, x+4, centerY+14);
+        }
+      }
+
+      function drawLens(){
+                ctx.save();
+        ctx.translate(lensX,0);
+        ctx.lineWidth=3; ctx.strokeStyle='rgba(130,200,255,0.9)';
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, H); ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawRays(){
+        const objTop = {x: objX, y: objTopY};
+                const r1p1 = {x: objTop.x, y: objTop.y};
+        const r1p2 = {x: lensX, y: objTop.y};
+        const r1_after = intersectAfterLens(r1p2, {x:f2x,y:centerY});
+        drawSegment(r1p1, r1p2, 'rgba(155,220,255,0.9)');
+        drawSegment(r1_after.start, r1_after.end, 'rgba(155,220,255,0.7)', true);
+
+                const r2p1 = {x: objTop.x, y: objTop.y};
+        const centerPoint = {x:lensX, y:centerY};
+        const r2_end = extendLineThrough(centerPoint, r2p1, W);
+        drawSegment(r2p1, centerPoint, 'rgba(173,255,184,0.95)');
+        drawSegment(centerPoint, r2_end, 'rgba(173,255,184,0.6)', true);
+
+                const focusFront = {x:f1x, y:centerY};
+        const r3p1 = {x: objTop.x, y: objTop.y};
+        const r3_to_f = lineThroughTwoPoints(r3p1, focusFront);
+        const meetingAtLens = {x:lensX, y: r3_to_f.yAtX(lensX)};
+        const r3_after = {start: meetingAtLens, end: {x: W, y: meetingAtLens.y}};         drawSegment(r3p1, meetingAtLens, 'rgba(255,210,140,0.95)');
+        drawSegment(r3_after.start, r3_after.end, 'rgba(255,210,140,0.6)', true);
+
+                if (isVirtual && showImage.checked){
+                              const lineA = lineThroughTwoPoints(r1_after.start, r1_after.end);
+          const lineB = lineThroughTwoPoints(centerPoint, r2_end);
+          const P = intersectLines(lineA, lineB);
+          if (P){
+            ctx.setLineDash([6,6]);
+            ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(lensX + di*mm2px, P.y); ctx.strokeStyle='rgba(255,150,150,0.5)'; ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
+      }
+
+            function drawSegment(a,b,color,after=false){ ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.strokeStyle=color; ctx.lineWidth=1.8; ctx.stroke(); }
+
+      function intersectAfterLens(pAtLens, through){
+                        const start = {x: lensX, y: pAtLens.y};
+                const slope = (through.y - start.y) / (through.x - start.x || 1e-9);
+        const endX = W; const endY = start.y + slope * (endX - start.x);
+        return {start: start, end: {x: endX, y: endY}};
+      }
+
+      function extendLineThrough(p1,p2, canvasW){
+        const line = lineThroughTwoPoints(p1,p2);
+        const x2 = canvasW; return {x:x2, y: line.yAtX(x2)};
+      }
+
+      function lineThroughTwoPoints(a,b){
+        const A = b.y - a.y; const B = a.x - b.x; const C = A*a.x + B*a.y;         return {
+          A,B,C,
+          yAtX(x){ if(Math.abs(B) < 1e-9) return a.y; return (C - A*x)/B; },
+          xAtY(y){ if(Math.abs(A) < 1e-9) return a.x; return (C - B*y)/A; }
+        };
+      }
+
+      function intersectLines(L1, L2){
+        const D = L1.A*L2.B - L2.A*L1.B; if (Math.abs(D) < 1e-9) return null;
+        const x = (L2.B*L1.C - L1.B*L2.C)/D; const y = (L1.A*L2.C - L2.A*L1.C)/D; return {x,y};
+      }
+    }
+
+        draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Двойная щель — теория и визуализация</title>
+  <link rel="stylesheet" href="../assets/site.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html">
+        <span>Интерактивный справочник</span>
+        <span class="badge">тема • двойная щель</span>
+      </a>
+      <nav class="nav">
+        <a href="../index.html#topics">Каталог</a>
+        <a href="#viz">Визуализация</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="breadcrumb"><a href="../index.html">Главная</a> → Двойная щель</div>
+
+    <article class="article">
+      <h1>Двойная щель (опыт Юнга)</h1>
+      <p>Два узких отверстия, освещённых одной волной, работают как два <b>когерентных источника</b>. На экране появляется интерференционная картина — светлые и тёмные полосы.</p>
+
+      <div class="kv">
+        <div class="callout">
+          <h3>Обозначения</h3>
+          <ul>
+            <li><span class="formula">d</span> — расстояние между щелями</li>
+            <li><span class="formula">L</span> — расстояние от щелей до экрана</li>
+            <li><span class="formula">λ</span> — длина волны света</li>
+            <li><span class="formula">y</span> — координата на экране (вверх/вниз)</li>
+          </ul>
+        </div>
+        <div class="callout">
+          <h3>Ключевые формулы</h3>
+          <ul>
+            <li>Разность хода: <span class="formula">Δ ≈ d·sinθ</span></li>
+            <li>Максимумы: <span class="formula">d·sinθ = mλ</span></li>
+            <li>Шаг полос (малые углы): <span class="formula">Δy ≈ λ·L / d</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Почему появляются полосы</h3>
+      <p>В каждой точке экрана волны от двух щелей приходят с разной фазой. Если фазы совпали — усиление (ярко), если «противофаза» — гашение (темно).</p>
+
+      <h3>Важно про реальную щель</h3>
+      <p>В реальности у каждой щели есть ширина <span class="formula">a</span>, поэтому поверх интерференции обычно накладывается <b>дифракционная огибающая</b>. В этой визуализации упор сделан на геометрию (d, L, λ) и саму идею интерференции.</p>
+
+      <h3>Что можно менять в визуализации</h3>
+      <ul>
+        <li><span class="formula">d</span>: уменьши — полосы разъедутся; увеличь — полос станет больше.</li>
+        <li><span class="formula">L</span>: увеличь — полосы разъедутся (экран дальше).</li>
+        <li><span class="formula">λ</span>: красный (больше λ) → полосы шире, фиолетовый (меньше λ) → уже.</li>
+        <li>Кнопка «Схема / Интерференция» переключает режим.</li>
+      </ul>
+
+      <h3 id="viz">Визуализация</h3>
+      <div class="actions">
+        <a class="btn" href="../visualizations/double_slit.html" target="_blank" rel="noopener">Открыть визуализацию ↗</a>
+        <a class="btn secondary" href="../index.html#topics">← Назад в каталог</a>
+      </div>
+
+      <details class="details">
+        <summary>Показать визуализацию прямо здесь (iframe)</summary>
+        <div class="inner">
+          <iframe class="embed" src="../visualizations/double_slit.html" title="Двойная щель"></iframe>
+        </div>
+      </details>
+    </article>
+
+    <footer class="footer">
+      <div>Если хочешь «прокачать» тему: добавь ширину щели <span class="formula">a</span> и получишь интерференцию × дифракцию.</div>
+    </footer>
+  </main>
+</body>
+</html>

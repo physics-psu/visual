@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Визуализация электрического поля (диполь)</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --panel:#0b1220cc;
+    --accent:#60a5fa;
+    --text:#e6eef8;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  #app{display:flex;gap:12px;height:100%;padding:16px;box-sizing:border-box}
+  #canvasWrap{flex:1;position:relative;border-radius:12px;overflow:hidden;box-shadow:0 6px 30px rgba(0,0,0,.6)}
+  canvas{display:block;width:100%;height:100%}
+  #panel{width:320px;background:linear-gradient(180deg,var(--panel),#061122);padding:14px;border-radius:12px;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.6);overflow:auto}
+  h1{font-size:18px;margin:4px 0 10px 0}
+  .row{display:flex;gap:8px;align-items:center;margin:8px 0}
+  label{font-size:13px}
+  input[type="range"]{width:100%}
+  button, .small{background:transparent;border:1px solid rgba(255,255,255,.08);padding:6px 10px;border-radius:8px;color:var(--text);cursor:pointer}
+  .small:hover{border-color:var(--accent)}
+  .legend{font-size:12px;color:rgba(230,238,248,.8);margin-top:8px}
+  .controls{display:grid;gap:10px}
+  .charge-info{display:flex;justify-content:space-between;font-size:13px}
+  .footer{font-size:12px;color:rgba(230,238,248,.6);margin-top:12px}
+  .switch{display:inline-flex;align-items:center;gap:8px}
+  .dot{width:12px;height:12px;border-radius:50%;display:inline-block;vertical-align:middle}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvasWrap">
+    <canvas id="c"></canvas>
+  </div>
+  <div id="panel">
+    <h1>Электростатическое поле — интерактивная визуализация</h1>
+    <div class="controls">
+
+      <div class="row">
+        <div style="flex:1">
+          <div class="charge-info"><span>Заряд A</span><span id="q1val">+1.00</span></div>
+          <input id="q1" type="range" min="-5" max="5" step="0.1" value="1">
+        </div>
+        <div style="width:10px"></div>
+      </div>
+
+      <div class="row">
+        <div style="flex:1">
+          <div class="charge-info"><span>Заряд B</span><span id="q2val">-1.00</span></div>
+          <input id="q2" type="range" min="-5" max="5" step="0.1" value="-1">
+        </div>
+      </div>
+
+      <div class="row">
+        <label class="switch"><input id="vectors" type="checkbox" checked> <span>Показывать векторы поля</span></label>
+      </div>
+      <div class="row">
+        <label class="switch"><input id="lines" type="checkbox" checked> <span>Показывать линии поля</span></label>
+      </div>
+
+
+      <div class="row">
+        <button id="reset" class="small">Сбросить положение зарядов</button>
+        <button id="randomize" class="small">Случайные заряды</button>
+      </div>
+
+      <div class="legend">
+        ИНФО:
+        <ul style="padding-left:18px;margin:6px 0 0 0">
+          <li>Возможно перетаскивание зарядов мышью.</li>
+          <li>Можно менять величину зарядов (положительные/отрицательные).</li>
+          <li>Линии поля начинаются от положительных зарядов и идут к отрицательным.</li>
+        </ul>
+      </div>
+
+      <div class="footer"># Формула поля от точечного заряда q: <code>E = k q r / |r|^3</code> (k=1 в единицах визуализации).</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  const q1Range = document.getElementById('q1');
+  const q2Range = document.getElementById('q2');
+  const q1val = document.getElementById('q1val');
+  const q2val = document.getElementById('q2val');
+  const vectorsToggle = document.getElementById('vectors');
+  const linesToggle = document.getElementById('lines');
+  const potentialToggle = document.getElementById('potential');
+
+  if (potentialToggle) potentialToggle.checked = false;
+
+  const resetBtn = document.getElementById('reset');
+  const randBtn = document.getElementById('randomize');
+
+
+  let DPR = window.devicePixelRatio || 1;
+  function resize() {
+    DPR = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * DPR;
+    canvas.height = canvas.clientHeight * DPR;
+  }
+  function fitCanvas() {
+    const wrap = document.getElementById('canvasWrap');
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    resize();
+  }
+  fitCanvas();
+  window.addEventListener('resize', () => { fitCanvas(); });
+
+  const chargeRadius = 10;
+  let charges = [
+    { x: 0.35, y: 0.5, q: 1.0, id: 'A' },
+    { x: 0.65, y: 0.5, q: -1.0, id: 'B' },
+  ];
+
+  function toScreen(c) { return { x: c.x * canvas.width, y: c.y * canvas.height }; }
+  function fromScreen(sx, sy) { return { x: sx / canvas.width, y: sy / canvas.height }; }
+
+  function updateSliders() {
+    q1Range.value = charges[0].q;
+    q2Range.value = charges[1].q;
+    q1val.textContent = Number(charges[0].q).toFixed(2);
+    q2val.textContent = Number(charges[1].q).toFixed(2);
+  }
+  updateSliders();
+
+  q1Range.addEventListener('input', () => {
+    charges[0].q = Number(q1Range.value);
+    updateSliders();
+  });
+  q2Range.addEventListener('input', () => {
+    charges[1].q = Number(q2Range.value);
+    updateSliders();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    charges[0].x = 0.35; charges[0].y = 0.5; charges[0].q = 1.0;
+    charges[1].x = 0.65; charges[1].y = 0.5; charges[1].q = -1.0;
+    updateSliders();
+  });
+  randBtn.addEventListener('click', () => {
+    charges.forEach(c => {
+      c.x = 0.2 + Math.random()*0.6;
+      c.y = 0.2 + Math.random()*0.6;
+      c.q = (Math.random()*8-4).toFixed(2) * 1;
+    });
+    updateSliders();
+  });
+
+  let dragging = null;
+  function getMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = (e.clientX - rect.left) * DPR;
+    const cy = (e.clientY - rect.top) * DPR;
+    return { x: cx, y: cy };
+  }
+  canvas.addEventListener('mousedown', (e) => {
+    const m = getMousePos(e);
+    for (let i=0;i<charges.length;i++){
+      const s = toScreen(charges[i]);
+      const dx = m.x - s.x, dy = m.y - s.y;
+      if (Math.sqrt(dx*dx+dy*dy) <= (chargeRadius*DPR+6)) { dragging = i; return; }
+    }
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (dragging === null) return;
+    const m = getMousePos(e);
+    const pos = fromScreen(m.x, m.y);
+    charges[dragging].x = Math.min(0.98, Math.max(0.02, pos.x));
+    charges[dragging].y = Math.min(0.98, Math.max(0.02, pos.y));
+  });
+  window.addEventListener('mouseup', () => dragging = null);
+
+  function fieldAt(px, py) {
+    let Ex = 0, Ey = 0;
+    for (const c of charges) {
+      const dx = px - c.x, dy = py - c.y;
+      let r2 = dx*dx + dy*dy;
+      const eps = 1e-5;
+      if (r2 < eps) r2 = eps;
+      const r = Math.sqrt(r2);
+      const invr3 = 1 / (r2 * r);
+      Ex += c.q * dx * invr3;
+      Ey += c.q * dy * invr3;
+    }
+    return {Ex, Ey};
+  }
+  function potentialAt(px,py) {
+    let V = 0;
+    for (const c of charges) {
+      const dx = px - c.x, dy = py - c.y;
+      let r = Math.sqrt(dx*dx + dy*dy);
+      const eps = 1e-5;
+      if (r < eps) r = eps;
+      V += c.q / r;
+    }
+    return V;
+  }
+
+  function drawBackground() {
+    if (!potentialToggle || !potentialToggle.checked) {
+      ctx.fillStyle = '#07101b';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      return;
+    }
+
+    const w = canvas.width, h = canvas.height;
+    const step = Math.max(6, Math.floor(6 * DPR));
+    const cols = Math.ceil(w/step), rows = Math.ceil(h/step);
+    const vals = new Float32Array(cols*rows);
+    let minV = Infinity, maxV = -Infinity;
+    for (let j=0;j<rows;j++){
+      for (let i=0;i<cols;i++){
+        const x = (i*step + 0.5*step) / w;
+        const y = (j*step + 0.5*step) / h;
+        const v = potentialAt(x,y);
+        vals[j*cols+i] = v;
+        if (v < minV) minV = v;
+        if (v > maxV) maxV = v;
+      }
+    }
+    const absMax = Math.max(Math.abs(minV), Math.abs(maxV), 0.1);
+    for (let j=0;j<rows;j++){
+      for (let i=0;i<cols;i++){
+        const v = vals[j*cols+i] / absMax;
+        const t = Math.tanh(v*1.5);
+        let r = Math.max(0, t);
+        let b = Math.max(0, -t);
+        let g = 1 - Math.abs(t);
+        r = Math.pow(r,0.8); g = Math.pow(g,0.9); b = Math.pow(b,0.8);
+        const ir = Math.floor(30 + r*225);
+        const ig = Math.floor(30 + g*200);
+        const ib = Math.floor(50 + b*230);
+        ctx.fillStyle = `rgb(${ir},${ig},${ib})`;
+        ctx.fillRect(i*step, j*step, step, step);
+      }
+    }
+  }
+
+  function drawFieldVectors() {
+    if (!vectorsToggle.checked) return;
+    const w = canvas.width, h = canvas.height;
+    const spacing = Math.floor(28 * DPR);
+    ctx.save();
+    ctx.lineWidth = Math.max(1, DPR*1.0);
+    for (let y = spacing/2; y < h; y += spacing){
+      for (let x = spacing/2; x < w; x += spacing){
+        const nx = x / w, ny = y / h;
+        let {Ex, Ey} = fieldAt(nx, ny);
+        const scale = 0.4 * Math.min(w,h);
+        const vx = Ex * scale;
+        const vy = Ey * scale;
+        const mag = Math.sqrt(vx*vx+vy*vy);
+        if (mag < 0.02) continue;
+        const len = Math.min(0.9*spacing, 8*DPR + 2*Math.log(1+mag));
+        const ux = vx / mag, uy = vy / mag;
+        const x2 = x + ux * len;
+        const y2 = y + uy * len;
+        const angle = Math.atan2(uy,ux);
+        const hue = Math.floor(180 + (angle / Math.PI) * 180);
+        ctx.strokeStyle = `hsl(${hue} 80% 60%)`;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.beginPath();
+        const ah = 6 * DPR;
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - ux*ah + -uy*ah*0.6, y2 - uy*ah + ux*ah*0.6);
+        ctx.lineTo(x2 - ux*ah + uy*ah*0.6, y2 - uy*ah + -ux*ah*0.6);
+        ctx.closePath();
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawFieldLines() {
+    if (!linesToggle.checked) return;
+    ctx.save();
+    ctx.lineWidth = Math.max(1, DPR*1.2);
+    const seedsPerCharge = 20;
+    for (const c of charges) {
+      const cx = c.x, cy = c.y;
+      const sign = Math.sign(c.q) || 1;
+      for (let s=0; s<seedsPerCharge; s++) {
+        const theta = (s / seedsPerCharge) * Math.PI * 2;
+        const r0 = 8 / Math.max(canvas.width, canvas.height);
+        let x = cx + r0 * Math.cos(theta);
+        let y = cy + r0 * Math.sin(theta);
+        let path = [];
+        let maxSteps = 300;
+        let stepSize = 0.008;
+        for (let i=0;i<maxSteps;i++){
+          path.push({x,y});
+          const f = fieldAt(x,y);
+          let Ex = f.Ex, Ey = f.Ey;
+          let mag = Math.hypot(Ex, Ey);
+          if (mag < 1e-6) break;
+          const dirx = Ex / mag * sign;
+          const diry = Ey / mag * sign;
+          let nearest = 1e9;
+          for (const cc of charges) {
+            const dx = x-cc.x, dy = y-cc.y;
+            nearest = Math.min(nearest, Math.hypot(dx,dy));
+          }
+          const adaptive = Math.max(0.002, Math.min(stepSize * (nearest*10), stepSize*6));
+          let nx = x + dirx * adaptive;
+          let ny = y + diry * adaptive;
+          let stopped = false;
+          for (const cc of charges) {
+            const dist = Math.hypot(nx-cc.x, ny-cc.y);
+            if (dist < 6 / Math.max(canvas.width, canvas.height)) { stopped = true; break; }
+          }
+          x = nx; y = ny;
+          if (x < 0 || x > 1 || y < 0 || y > 1) break;
+          if (stopped) break;
+        }
+        if (path.length > 2) {
+          const col = c.q > 0 ? 'rgba(255,220,120,0.95)' : 'rgba(140,210,255,0.95)';
+          ctx.strokeStyle = col;
+          ctx.beginPath();
+          const p0 = path[0];
+          ctx.moveTo(p0.x * canvas.width, p0.y * canvas.height);
+          for (let k=1;k<path.length;k++){
+            ctx.lineTo(path[k].x * canvas.width, path[k].y * canvas.height);
+          }
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawCharges() {
+    for (const c of charges) {
+      const s = toScreen(c);
+      const magnitude = Math.min(6 + Math.abs(c.q)*3, 28);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, (chargeRadius*DPR + magnitude*DPR*0.4), 0, Math.PI*2);
+      ctx.fillStyle = c.q>0 ? 'rgba(255,180,80,0.06)' : 'rgba(120,200,255,0.06)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, chargeRadius*DPR, 0, Math.PI*2);
+      ctx.fillStyle = c.q>0 ? '#ffb84d' : '#8ed2ff';
+      ctx.fill();
+      ctx.lineWidth = Math.max(1, DPR*1.2);
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.stroke();
+      ctx.font = `${12*DPR}px Inter, Roboto, sans-serif`;
+      ctx.fillStyle = '#041623';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText((c.q>0?'+':'') + Number(c.q).toFixed(2), s.x, s.y);
+    }
+  }
+
+  let mouse = {x:0,y:0,over:false};
+  canvas.addEventListener('mousemove', (e) => {
+    const m = getMousePos(e);
+    mouse.x = m.x; mouse.y = m.y; mouse.over = true;
+  });
+  canvas.addEventListener('mouseleave', () => mouse.over = false);
+
+  function drawHUD() {
+    if (!mouse.over) return;
+    const nx = mouse.x / canvas.width, ny = mouse.y / canvas.height;
+    const f = fieldAt(nx,ny);
+    const V = potentialAt(nx,ny);
+    const Ex = f.Ex, Ey = f.Ey;
+    const mag = Math.hypot(Ex,Ey);
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineWidth = Math.max(1.2, DPR*1.6);
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    const sx = mouse.x, sy = mouse.y;
+    const scale = 0.6 * Math.min(canvas.width, canvas.height);
+    const vx = Ex * scale, vy = Ey * scale;
+    const vm = Math.hypot(vx,vy);
+    const len = Math.min(60*DPR, 6*Math.log(2+vm));
+    if (vm > 1e-4) {
+      const ux = vx/vm, uy = vy/vm;
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + ux*len, sy + uy*len);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.arc(sx, sy, 4*DPR, 0, Math.PI*2);
+      ctx.fill();
+    }
+    const lines = [
+      `E = ${mag.toExponential(3)} (a.u.)`,
+      `V = ${V.toExponential(3)} (a.u.)`,
+      `x=${(nx).toFixed(3)}, y=${(ny).toFixed(3)}`
+    ];
+    ctx.font = `${12*DPR}px Inter, Roboto, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const pad = 8*DPR;
+    let bw = 0;
+    for (const t of lines) bw = Math.max(bw, ctx.measureText(t).width);
+    const bx = Math.min(canvas.width - (bw + pad*2), sx + 12*DPR);
+    const by = Math.min(canvas.height - 70*DPR, sy + 12*DPR);
+    ctx.fillStyle = 'rgba(2,6,12,0.8)';
+    ctx.fillRect(bx, by, bw + pad*2, lines.length*16*DPR + pad);
+    ctx.fillStyle = 'rgba(230,238,248,0.95)';
+    for (let i=0;i<lines.length;i++){
+      ctx.fillText(lines[i], bx + pad, by + pad/2 + i*16*DPR);
+    }
+    ctx.restore();
+  }
+
+  function frame(){
+    resize();
+    drawBackground();
+    drawFieldVectors();
+    drawFieldLines();
+    drawCharges();
+    drawHUD();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  setTimeout(() => { fitCanvas(); }, 50);
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ядерная физика: радиоактивный распад (α/β/γ) — красивая визуализация</title>
+  <style>
+    :root { color-scheme: dark; --bg:#070a12; --card:rgba(255,255,255,0.05); --line:rgba(255,255,255,0.10); --text:#e7ecff; --muted:rgba(231,236,255,0.72); }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; overflow:hidden; }
+    #wrap { height:100%; display:grid; grid-template-rows:auto 1fr; }
+    header {
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+      padding:10px 12px; background:rgba(255,255,255,0.04); border-bottom:1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+    header .group { display:flex; gap:8px; align-items:center; padding:6px 8px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); }
+    label { font-size:13px; color: var(--muted); }
+    select, input[type="range"], button {
+      background:rgba(255,255,255,0.06); color:var(--text);
+      border:1px solid rgba(255,255,255,0.14); border-radius:12px;
+      padding:8px 10px; font-size:13px;
+    }
+    input[type="range"]{ padding:0; height:34px; }
+    button { cursor:pointer; }
+    button:hover { background:rgba(255,255,255,0.10); }
+    #stats { margin-left:auto; min-width: 260px; font-size:13px; line-height:1.35; color:var(--muted); }
+    #stats b { color:var(--text); }
+    #stage { position:relative; height:100%; }
+    canvas { width:100%; height:100%; display:block; }
+    #overlay {
+      position:absolute; right:14px; top:14px; width:min(380px, 42vw);
+      background: rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.10);
+      border-radius:18px; padding:12px 12px 10px;
+      box-shadow: 0 14px 35px rgba(0,0,0,0.45);
+      backdrop-filter: blur(10px);
+      pointer-events:none;
+    }
+    #overlay h3 { margin:0 0 6px; font-size:14px; color:var(--text); }
+    #overlay p { margin:0; font-size:12px; color:rgba(231,236,255,0.70); line-height:1.5; }
+    #overlay .eq { margin-top:8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; color:rgba(231,236,255,0.78); }
+    #mini {
+      position:absolute; left:14px; bottom:14px; width:min(520px, 60vw); height:160px;
+      background: rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.10);
+      border-radius:18px; padding:8px;
+      box-shadow: 0 14px 35px rgba(0,0,0,0.45);
+      backdrop-filter: blur(10px);
+    }
+    #mini canvas { width:100%; height:100%; border-radius:12px; }
+    .hint { opacity:0.85; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div class="group">
+      <label for="mode">Тип распада</label>
+      <select id="mode">
+        <option value="alpha" selected>α (альфа)</option>
+        <option value="betaMinus">β⁻ (бета-минус)</option>
+        <option value="betaPlus">β⁺ (бета-плюс)</option>
+        <option value="gamma">γ (гамма)</option>
+        <option value="mix">Смешанный (случайно)</option>
+      </select>
+    </div>
+
+    <div class="group">
+      <label for="n0">Число ядер N₀</label>
+      <input id="n0" type="range" min="80" max="900" step="10" value="420" />
+      <span id="n0v" style="min-width:44px;text-align:right;display:inline-block;">420</span>
+    </div>
+
+    <div class="group">
+      <label for="t12">Период полураспада T½</label>
+      <input id="t12" type="range" min="0.8" max="18" step="0.1" value="6.0" />
+      <span id="t12v" style="min-width:56px;text-align:right;display:inline-block;">6.0 s</span>
+    </div>
+
+    <div class="group">
+      <label for="speed">Скорость</label>
+      <input id="speed" type="range" min="0.4" max="3.0" step="0.1" value="1.2" />
+      <span id="speedv" style="min-width:56px;text-align:right;display:inline-block;">1.2×</span>
+    </div>
+
+    <div class="group">
+      <button id="toggle">Пауза</button>
+      <button id="reset">Сброс</button>
+      <button id="burst">Ускорить распад</button>
+    </div>
+
+    <div id="stats">
+      <div><b id="alive">—</b> ядер не распалось</div>
+      <div>Активность A≈<b id="act">—</b> распад/с</div>
+      <div>Счётчик (детектор): <b id="hits">—</b></div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <canvas id="c"></canvas>
+
+      <p class="hint" style="margin-top:8px;">
+        Справа — «детектор»: частицы, долетающие до него, увеличивают счётчик.
+      </p>
+    </div>
+
+    <div id="mini">
+      <canvas id="plot"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const plot = document.getElementById('plot');
+  const pctx = plot.getContext('2d');
+
+  let DPR = 1;
+  function resize() {
+    DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = Math.floor(w * DPR);
+    canvas.height = Math.floor(h * DPR);
+
+    const pw = plot.clientWidth, ph = plot.clientHeight;
+    plot.width = Math.floor(pw * DPR);
+    plot.height = Math.floor(ph * DPR);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const rand = (a=0,b=1)=>a+Math.random()*(b-a);
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+  function expSample(rate) {
+    const u = Math.max(1e-9, Math.random());
+    return -Math.log(u)/rate;
+  }
+
+  // UI
+  const modeSel = document.getElementById('mode');
+  const n0Range = document.getElementById('n0');
+  const t12Range = document.getElementById('t12');
+  const speedRange = document.getElementById('speed');
+  const n0v = document.getElementById('n0v');
+  const t12v = document.getElementById('t12v');
+  const speedv = document.getElementById('speedv');
+
+  const toggleBtn = document.getElementById('toggle');
+  const resetBtn = document.getElementById('reset');
+  const burstBtn = document.getElementById('burst');
+
+  const aliveEl = document.getElementById('alive');
+  const actEl = document.getElementById('act');
+  const hitsEl = document.getElementById('hits');
+
+  let paused = false;
+
+  function layout() {
+    const w = canvas.width, h = canvas.height;
+    const sample = { x0: w*0.06, x1: w*0.70, y0: h*0.10, y1: h*0.90 };
+    const det = { x0: w*0.78, x1: w*0.95, y0: h*0.12, y1: h*0.88 };
+    return { w, h, sample, det };
+  }
+
+  let sim = {
+    t: 0,
+    N0: +n0Range.value,
+    T12: +t12Range.value,
+    speed: +speedRange.value,
+    mode: modeSel.value,
+    lambda: Math.log(2)/(+t12Range.value),
+    nuclei: [],
+    particles: [],
+    hits: 0,
+    recentDecays: []
+  };
+
+  function pickDecayMode() {
+    const m = sim.mode;
+    if (m !== "mix") return m;
+    const u = Math.random();
+    if (u < 0.18) return "alpha";
+    if (u < 0.58) return "betaMinus";
+    if (u < 0.90) return "gamma";
+    return "betaPlus";
+  }
+
+  function modeColor(type) {
+    if (type === "alpha") return {r:255,g:170,b:90};
+    if (type === "betaMinus") return {r:120,g:210,b:255};
+    if (type === "betaPlus") return {r:255,g:120,b:190};
+    if (type === "gamma") return {r:190,g:255,b:140};
+    return {r:255,g:255,b:255};
+  }
+  const rgba = (c,a)=>`rgba(${c.r},${c.g},${c.b},${a})`;
+
+  function updateFromUI() {
+    n0v.textContent = n0Range.value;
+    t12v.textContent = (+t12Range.value).toFixed(1) + " s";
+    speedv.textContent = (+speedRange.value).toFixed(1) + "×";
+  }
+
+  modeSel.addEventListener('change', () => { sim.mode = modeSel.value; });
+  n0Range.addEventListener('input', () => { updateFromUI(); });
+  t12Range.addEventListener('input', () => { updateFromUI(); });
+  speedRange.addEventListener('input', () => { updateFromUI(); });
+
+  toggleBtn.addEventListener('click', () => {
+    paused = !paused;
+    toggleBtn.textContent = paused ? "Продолжить" : "Пауза";
+  });
+  resetBtn.addEventListener('click', () => resetSim());
+  burstBtn.addEventListener('click', () => {
+    const k = 2.5;
+    for (const n of sim.nuclei) if (n.alive) n.tDecay = sim.t + (n.tDecay - sim.t)/k;
+  });
+
+  // particles
+  const MAX_TRAIL = 70;
+
+  function spawnParticle(x, y, type) {
+    const col = modeColor(type);
+
+    const ang = rand(-0.55, 0.55);
+    const dirx = Math.cos(ang), diry = Math.sin(ang);
+
+    let speed = 0, waviness = 0;
+    if (type === "alpha") { speed = rand(160, 250)*DPR; waviness = 0.08; }
+    if (type === "betaMinus" || type === "betaPlus") { speed = rand(520, 760)*DPR; waviness = 0.38; }
+    if (type === "gamma") { speed = rand(980, 1250)*DPR; waviness = 0.18; }
+
+    sim.particles.push({
+      x, y,
+      vx: dirx * speed,
+      vy: diry * speed,
+      type, col,
+      life: 0,
+      ttl: (type === "gamma") ? 0.9 : (type === "alpha" ? 2.0 : 1.4),
+      trail: [],
+      waviness,
+      phase: rand(0, Math.PI*2),
+      curl: (type.startsWith("beta")) ? rand(4.0, 8.0) : rand(1.2, 3.0),
+      _counted: false
+    });
+  }
+
+  function hitDetector(p) {
+    const { det } = layout();
+    return (p.x >= det.x0 && p.x <= det.x1 && p.y >= det.y0 && p.y <= det.y1);
+  }
+
+  // plot series
+  const series = [];
+  function aliveCount() {
+    let c = 0;
+    for (const n of sim.nuclei) if (n.alive) c++;
+    return c;
+  }
+  function pushSeriesPoint() {
+    const N = aliveCount();
+    const windowSec = 1.0;
+    const t0 = sim.t - windowSec;
+    sim.recentDecays = sim.recentDecays.filter(t => t >= t0);
+    const A = sim.recentDecays.length / windowSec;
+    series.push({t: sim.t, N, A});
+    if (series.length > 700) series.shift();
+  }
+
+  function drawPlot() {
+    const w = plot.width, h = plot.height;
+    pctx.clearRect(0,0,w,h);
+
+    const g = pctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0, "rgba(255,255,255,0.05)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    pctx.fillStyle = g;
+    pctx.fillRect(0,0,w,h);
+
+    pctx.strokeStyle = "rgba(255,255,255,0.10)";
+    pctx.lineWidth = 1*DPR;
+    pctx.strokeRect(0.5*DPR,0.5*DPR,w-1*DPR,h-1*DPR);
+
+    if (series.length < 2) return;
+
+    const tMin = series[0].t;
+    const tMax = series[series.length-1].t;
+    const pad = 10*DPR;
+
+    const Nmax = sim.N0;
+    let Amax = 1;
+    for (const s of series) Amax = Math.max(Amax, s.A);
+
+    const xForT = (t)=> pad + (t - tMin) / Math.max(1e-6,(tMax - tMin)) * (w - 2*pad);
+    const yForN = (N)=> h - pad - (N / Math.max(1,Nmax)) * (h - 2*pad);
+    const yForA = (A)=> h - pad - (A / Math.max(1e-6,Amax)) * (h - 2*pad);
+
+    pctx.fillStyle = "rgba(231,236,255,0.70)";
+    pctx.font = `${12*DPR}px system-ui`;
+    pctx.fillText("N(t)", 10*DPR, 18*DPR);
+    pctx.fillText("A(t)", 10*DPR, 36*DPR);
+
+    pctx.beginPath();
+    for (let i=0;i<series.length;i++){
+      const s = series[i];
+      const x = xForT(s.t), y = yForN(s.N);
+      if (i===0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+    }
+    pctx.strokeStyle = "rgba(160,200,255,0.9)";
+    pctx.lineWidth = 2*DPR;
+    pctx.stroke();
+
+    pctx.beginPath();
+    for (let i=0;i<series.length;i++){
+      const s = series[i];
+      const x = xForT(s.t), y = yForA(s.A);
+      if (i===0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+    }
+    pctx.strokeStyle = "rgba(255,180,120,0.85)";
+    pctx.lineWidth = 2*DPR;
+    pctx.stroke();
+  }
+
+  // render
+  function drawBackground() {
+    const { w, h } = layout();
+    ctx.clearRect(0,0,w,h);
+
+    const g = ctx.createRadialGradient(w*0.25, h*0.55, 10*DPR, w*0.25, h*0.55, Math.max(w,h)*0.85);
+    g.addColorStop(0, "rgba(120,160,255,0.14)");
+    g.addColorStop(0.45, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,w,h);
+
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    for (let i=0;i<70;i++){
+      const x = (Math.sin(i*999.1)*0.5+0.5)*w;
+      const y = (Math.sin(i*1234.7+1.3)*0.5+0.5)*h;
+      const r = ((i%7)+1)*0.25*DPR;
+      ctx.beginPath();
+      ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawPanels() {
+    const { sample, det } = layout();
+
+    ctx.fillStyle = "rgba(255,255,255,0.03)";
+    ctx.fillRect(sample.x0, sample.y0, sample.x1-sample.x0, sample.y1-sample.y0);
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1*DPR;
+    ctx.strokeRect(sample.x0, sample.y0, sample.x1-sample.x0, sample.y1-sample.y0);
+
+    ctx.fillStyle = "rgba(231,236,255,0.65)";
+    ctx.font = `${13*DPR}px system-ui`;
+    ctx.fillText("Образец (нестабильные ядра)", sample.x0 + 10*DPR, sample.y0 - 10*DPR);
+
+    const dg = ctx.createLinearGradient(det.x0,0,det.x1,0);
+    dg.addColorStop(0, "rgba(140,255,200,0.08)");
+    dg.addColorStop(1, "rgba(140,255,200,0.02)");
+    ctx.fillStyle = dg;
+    ctx.fillRect(det.x0, det.y0, det.x1-det.x0, det.y1-det.y0);
+
+    ctx.strokeStyle = "rgba(140,255,200,0.20)";
+    ctx.lineWidth = 1*DPR;
+    ctx.strokeRect(det.x0, det.y0, det.x1-det.x0, det.y1-det.y0);
+
+    ctx.fillStyle = "rgba(180,255,220,0.75)";
+    ctx.font = `${13*DPR}px system-ui`;
+    ctx.fillText("Детектор", det.x0 + 10*DPR, det.y0 - 10*DPR);
+
+    ctx.strokeStyle = "rgba(140,255,200,0.10)";
+    ctx.lineWidth = 1*DPR;
+    for (let y = det.y0; y <= det.y1; y += 18*DPR) {
+      ctx.beginPath();
+      ctx.moveTo(det.x0, y);
+      ctx.lineTo(det.x1, y);
+      ctx.stroke();
+    }
+  }
+
+  function drawNuclei() {
+    for (const n of sim.nuclei) {
+      const t = sim.t;
+      const j = 0.9*DPR;
+      const x = n.x + Math.sin(t*2.2 + n.jitter)*j;
+      const y = n.y + Math.cos(t*2.0 + n.jitter)*j;
+
+      const a = n.alive ? (0.35 + 0.55*n.glow) : 0.08;
+      const r = n.size * (n.alive ? 1.0 : 0.9);
+
+      const grad = ctx.createRadialGradient(x,y, 0, x,y, 16*DPR);
+      grad.addColorStop(0, `rgba(160,200,255,${0.22*a})`);
+      grad.addColorStop(0.6, `rgba(160,200,255,${0.10*a})`);
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(x,y, 16*DPR, 0, Math.PI*2);
+      ctx.fill();
+
+      ctx.fillStyle = `rgba(200,230,255,${0.85*a})`;
+      ctx.beginPath();
+      ctx.arc(x,y, r, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function drawParticles() {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    for (const p of sim.particles) {
+      const tr = p.trail;
+      for (let i=1; i<tr.length; i++) {
+        const a = i / tr.length;
+        ctx.strokeStyle = rgba(p.col, 0.50*a);
+        ctx.lineWidth = (p.type === "alpha" ? 3.2 : (p.type === "gamma" ? 2.2 : 1.8)) * DPR;
+        ctx.beginPath();
+        ctx.moveTo(tr[i-1].x, tr[i-1].y);
+        ctx.lineTo(tr[i].x, tr[i].y);
+        ctx.stroke();
+      }
+
+      const rr = (p.type === "alpha") ? 4.0 : (p.type === "gamma" ? 3.0 : 2.5);
+      ctx.fillStyle = rgba(p.col, 0.92);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rr*DPR, 0, Math.PI*2);
+      ctx.fill();
+
+      if (p.type === "gamma") {
+        const s = 10*DPR;
+        ctx.strokeStyle = rgba(p.col, 0.35);
+        ctx.lineWidth = 1.2*DPR;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, s, 0, Math.PI*2);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function updateStats() {
+    const N = aliveCount();
+    aliveEl.textContent = `${N}/${sim.N0}`;
+
+    const windowSec = 1.0;
+    const t0 = sim.t - windowSec;
+    sim.recentDecays = sim.recentDecays.filter(t => t >= t0);
+    const A = sim.recentDecays.length / windowSec;
+    actEl.textContent = A.toFixed(1);
+
+    hitsEl.textContent = String(sim.hits);
+  }
+
+  function resetSim() {
+    sim.t = 0;
+    sim.N0 = +n0Range.value;
+    sim.T12 = +t12Range.value;
+    sim.speed = +speedRange.value;
+    sim.mode = modeSel.value;
+    sim.lambda = Math.log(2)/sim.T12;
+
+    sim.particles.length = 0;
+    sim.hits = 0;
+    sim.recentDecays.length = 0;
+
+    const { sample } = layout();
+    sim.nuclei = Array.from({length: sim.N0}, (_, i) => ({
+      id: i,
+      x: rand(sample.x0, sample.x1),
+      y: rand(sample.y0, sample.y1),
+      alive: true,
+      tDecay: expSample(sim.lambda),
+      jitter: rand(0, Math.PI*2),
+      glow: rand(0.25, 0.85),
+      size: rand(2.0, 3.6)*DPR
+    }));
+
+    series.length = 0;
+    pushSeriesPoint();
+    updateStats();
+  }
+
+  function step(dt) {
+    sim.speed = +speedRange.value;
+    sim.T12 = +t12Range.value;
+    sim.lambda = Math.log(2)/sim.T12;
+    sim.mode = modeSel.value;
+
+    const sdt = dt * sim.speed;
+    sim.t += sdt;
+
+    // decay events
+    for (const n of sim.nuclei) {
+      if (!n.alive) continue;
+      if (sim.t >= n.tDecay) {
+        n.alive = false;
+        sim.recentDecays.push(sim.t);
+
+        const type = pickDecayMode();
+        const burst = (type === "gamma") ? 2 : (type === "alpha" ? 4 : 5);
+        for (let k=0;k<burst;k++){
+          spawnParticle(n.x + rand(-3,3)*DPR, n.y + rand(-3,3)*DPR, type);
+        }
+      }
+    }
+
+    // particles update
+    const { w, h } = layout();
+    const next = [];
+    for (const p of sim.particles) {
+      p.life += sdt;
+      p.phase += sdt;
+
+      const vlen = Math.hypot(p.vx, p.vy) || 1;
+      const nx = -p.vy / vlen, ny = p.vx / vlen;
+      const swirl = (p.type.startsWith("beta")) ? Math.sin(p.life*p.curl) : 0;
+
+      p.x += p.vx * sdt + nx * swirl * 22*DPR * p.waviness * sdt;
+      p.y += p.vy * sdt + ny * swirl * 22*DPR * p.waviness * sdt;
+
+      p.trail.push({x:p.x, y:p.y});
+      if (p.trail.length > MAX_TRAIL) p.trail.shift();
+
+      if (!p._counted && hitDetector(p)) {
+        p._counted = true;
+        sim.hits += 1;
+      }
+
+      const out = (p.x < -60*DPR || p.y < -60*DPR || p.x > w+60*DPR || p.y > h+60*DPR);
+      if (!out && p.life < p.ttl) next.push(p);
+    }
+    sim.particles = next;
+
+    if (series.length === 0 || sim.t - series[series.length-1].t >= 0.08) pushSeriesPoint();
+    updateStats();
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.033, (now-last)/1000);
+    last = now;
+
+    if (!paused) step(dt);
+
+    drawBackground();
+    drawPanels();
+    drawNuclei();
+    drawParticles();
+    drawPlot();
+
+    requestAnimationFrame(frame);
+  }
+
+  updateFromUI();
+  resetSim();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

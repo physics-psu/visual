@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Цепная ядерная реакция — теория и визуализация</title>
+  <link rel="stylesheet" href="../assets/site.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html">
+        <span>Интерактивный справочник</span>
+        <span class="badge">тема • ядерная физика</span>
+      </a>
+      <nav class="nav">
+        <a href="../index.html#topics">Каталог</a>
+        <a href="#viz">Визуализация</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="breadcrumb"><a href="../index.html">Главная</a> → Цепная реакция</div>
+
+    <article class="article">
+      <h1>Цепная ядерная реакция (идея)</h1>
+      <p><b>Цепная реакция</b> — процесс, в котором каждое событие (деление) рождает новые нейтроны, способные вызвать следующие события. Важнейший параметр — «усиление» реакции.</p>
+
+      <div class="kv">
+        <div class="callout">
+          <h3>k<sub>эфф</sub> (очень просто)</h3>
+          <ul>
+            <li><span class="formula">k&lt;1</span> — <b>субкритично</b>: реакция затухает.</li>
+            <li><span class="formula">k=1</span> — <b>критично</b>: стабильный уровень.</li>
+            <li><span class="formula">k&gt;1</span> — <b>сверхкритично</b>: реакция нарастает.</li>
+          </ul>
+        </div>
+        <div class="callout">
+          <h3>Почему помогают замедлители и поглотители</h3>
+          <ul>
+            <li><b>Замедление</b> (moderation): меняет «энергию» нейтронов, повышая шанс взаимодействия (в зависимости от материала).</li>
+            <li><b>Поглощение</b> (absorption): нейтроны «теряются» → уменьшает k.</li>
+            <li><b>Стартовый импульс</b> (seed): сколько нейтронов мы «впрыснули» вначале.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Что показывает визуализация</h3>
+      <ul>
+        <li>«Топливо» — множество условных ядер; нейтроны бегают и иногда вызывают «вспышки» (деления).</li>
+        <li>График снизу/справа: как меняются «топливо», «мощность» и «температура» во времени.</li>
+        <li>Это <b>абстрактная</b> модель для интуиции (не инженерный расчёт).</li>
+      </ul>
+
+      <h3>Что крутить</h3>
+      <ul>
+        <li><b>Интенсивность</b>: грубо повышает вероятность продолжения цепочки.</li>
+        <li><b>Замедление</b> и <b>поглощение</b>: два способа «успокоить» реакцию.</li>
+        <li><b>Стартовый импульс</b>: насколько легко «зажечь» цепочку.</li>
+      </ul>
+
+      <h3 id="viz">Визуализация</h3>
+      <div class="actions">
+        <a class="btn" href="../visualizations/nuclear_chain_reaction.html" target="_blank" rel="noopener">Открыть визуализацию ↗</a>
+        <a class="btn secondary" href="../index.html#topics">← Назад в каталог</a>
+      </div>
+
+      <details class="details">
+        <summary>Показать визуализацию прямо здесь (iframe)</summary>
+        <div class="inner">
+          <iframe class="embed" src="../visualizations/nuclear_chain_reaction.html" title="Цепная ядерная реакция"></iframe>
+        </div>
+      </details>
+    </article>
+
+    <footer class="footer">
+      <div>Подсказка: если при старте всё быстро «взрывается» — уменьши интенсивность или увеличь поглощение.</div>
+    </footer>
+  </main>
+</body>
+</html>

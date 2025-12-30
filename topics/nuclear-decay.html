@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Радиоактивный распад — теория и визуализация</title>
+  <link rel="stylesheet" href="../assets/site.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html">
+        <span>Интерактивный справочник</span>
+        <span class="badge">тема • ядерная физика</span>
+      </a>
+      <nav class="nav">
+        <a href="../index.html#topics">Каталог</a>
+        <a href="#viz">Визуализация</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="breadcrumb"><a href="../index.html">Главная</a> → Радиоактивный распад</div>
+
+    <article class="article">
+      <h1>Радиоактивный распад (α / β / γ)</h1>
+      <p><b>Радиоактивный распад</b> — случайный процесс: нельзя предсказать момент распада конкретного ядра, но можно предсказать поведение большого числа ядер статистически.</p>
+
+      <div class="kv">
+        <div class="callout">
+          <h3>Закон распада</h3>
+          <ul>
+            <li>Экспоненциальный закон: <span class="formula">N(t)=N₀e^{-λt}</span></li>
+            <li>Через период полураспада: <span class="formula">N(t)=N₀·2^{-t/T½}</span></li>
+            <li>Связь: <span class="formula">λ=ln2/T½</span></li>
+          </ul>
+        </div>
+        <div class="callout">
+          <h3>Активность</h3>
+          <ul>
+            <li>Активность (распад/с): <span class="formula">A=λN</span></li>
+            <li>С ростом <span class="formula">T½</span> распад идёт медленнее (меньше <span class="formula">λ</span>).</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Типы распада (очень коротко)</h3>
+      <ul>
+        <li><b>α</b>: вылетает ядро гелия (2p+2n), сильная ионизация, малая проникающая способность.</li>
+        <li><b>β⁻</b>: нейтрон → протон + электрон + антинейтрино.</li>
+        <li><b>β⁺</b>: протон → нейтрон + позитрон + нейтрино (возможна аннигиляция).</li>
+        <li><b>γ</b>: испускание фотона высокой энергии при переходе ядра в более низкое состояние.</li>
+      </ul>
+
+      <h3>Что крутить в визуализации</h3>
+      <ul>
+        <li><span class="formula">N₀</span> — сколько ядер в начале.</li>
+        <li><span class="formula">T½</span> — период полураспада (быстрее/медленнее).</li>
+        <li>Тип распада (α/β/γ) и «ускорить распад» для демонстрации.</li>
+        <li>Счётчик справа — условный «детектор».</li>
+      </ul>
+
+      <h3 id="viz">Визуализация</h3>
+      <div class="actions">
+        <a class="btn" href="../visualizations/nuclear_decay.html" target="_blank" rel="noopener">Открыть визуализацию ↗</a>
+        <a class="btn secondary" href="../index.html#topics">← Назад в каталог</a>
+      </div>
+
+      <details class="details">
+        <summary>Показать визуализацию прямо здесь (iframe)</summary>
+        <div class="inner">
+          <iframe class="embed" src="../visualizations/nuclear_decay.html" title="Радиоактивный распад"></iframe>
+        </div>
+      </details>
+    </article>
+
+    <footer class="footer">
+      <div>Фишка: распад «шумный» по событиям, но плавный по средней кривой <span class="formula">N(t)</span>.</div>
+    </footer>
+  </main>
+</body>
+</html>

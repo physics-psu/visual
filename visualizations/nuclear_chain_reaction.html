@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ядерная реакция: цепная реакция и энерговыделение (абстрактная визуализация)</title>
+  <style>
+    :root { color-scheme: dark; --bg:#050812; --card:rgba(255,255,255,0.05); --line:rgba(255,255,255,0.10); --text:#e7ecff; --muted:rgba(231,236,255,0.72); }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; overflow:hidden; }
+    #wrap { height:100%; display:grid; grid-template-rows:auto 1fr; }
+    header {
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+      padding:10px 12px; background:rgba(255,255,255,0.04); border-bottom:1px solid var(--line);
+}
+    header .group { display:flex; gap:8px; align-items:center; padding:6px 8px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); }
+    label { font-size:13px; color: var(--muted); }
+    input[type="range"], button {
+      background:rgba(255,255,255,0.06); color:var(--text);
+      border:1px solid rgba(255,255,255,0.14); border-radius:12px;
+      padding:8px 10px; font-size:13px;
+    }
+    input[type="range"]{ padding:0; height:34px; }
+    button { cursor:pointer; }
+    button:hover { background:rgba(255,255,255,0.10); }
+    .val { min-width:64px; text-align:right; display:inline-block; font-size:13px; color:var(--muted); }
+    #stats { margin-left:auto; min-width: 340px; font-size:13px; line-height:1.35; color:var(--muted); }
+    #stats b { color:var(--text); }
+    #stage { position:relative; height:100%; }
+    canvas { width:100%; height:100%; display:block; }
+    #plotWrap {
+      position:absolute; right:14px; bottom:14px; width:min(560px, 60vw); height:170px;
+      background: rgba(0,0,0,0.32); border:1px solid rgba(255,255,255,0.10);
+      border-radius:18px; padding:8px;
+      box-shadow: 0 14px 35px rgba(0,0,0,0.45);
+}
+    #plotWrap canvas { width:100%; height:100%; border-radius:12px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; padding: 2px 7px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div class="group">
+      <label for="intensity">Интенсивность реакции</label>
+      <input id="intensity" type="range" min="0.3" max="2.2" step="0.05" value="1.15" />
+      <span class="val" id="intensityV">1.15×</span>
+    </div>
+
+    <div class="group">
+      <label for="moderation">Замедление нейтронов</label>
+      <input id="moderation" type="range" min="0" max="1" step="0.01" value="0.35" />
+      <span class="val" id="moderationV">0.35</span>
+    </div>
+
+    <div class="group">
+      <label for="absorption">Поглощение</label>
+      <input id="absorption" type="range" min="0" max="1" step="0.01" value="0.18" />
+      <span class="val" id="absorptionV">0.18</span>
+    </div>
+
+    <div class="group">
+      <label for="seed">Стартовый импульс</label>
+      <input id="seed" type="range" min="1" max="80" step="1" value="18" />
+      <span class="val" id="seedV">18</span>
+    </div>
+
+    <div class="group">
+      <button id="ignite">Запуск</button>
+      <button id="pause">Пауза</button>
+      <button id="reset">Сброс</button>
+    </div>
+
+    <div id="stats">
+      <div>Осталось «топлива»: <b id="fuel">—</b></div>
+      <div>«Мощность» (вспышки/с): <b id="power">—</b></div>
+      <div>Средняя «температура»: <b id="temp">—</b></div>
+    </div>
+  </header>
+
+  <div id="stage">
+    <canvas id="c"></canvas>
+
+
+    <div id="plotWrap">
+      <canvas id="plot"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ===== Canvas / DPI =====
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const plot = document.getElementById('plot');
+  const pctx = plot.getContext('2d');
+
+  // Кэш фона: рисуем градиент/«звёзды» один раз, а не каждый кадр
+  const bgCanvas = document.createElement('canvas');
+  const bgCtx = bgCanvas.getContext('2d');
+
+  function rebuildBackground() {
+    const w = bgCanvas.width, h = bgCanvas.height;
+    if (!w || !h) return;
+    bgCtx.clearRect(0,0,w,h);
+
+    const g = bgCtx.createRadialGradient(w*0.35, h*0.55, 10*DPR, w*0.35, h*0.55, Math.max(w,h)*0.9);
+    g.addColorStop(0, "rgba(120,160,255,0.10)");
+    g.addColorStop(0.35, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    bgCtx.fillStyle = g;
+    bgCtx.fillRect(0,0,w,h);
+
+    bgCtx.fillStyle = "rgba(255,255,255,0.10)";
+    for (let i=0;i<55;i++){
+      const x = (Math.sin(i*999.1)*0.5+0.5)*w;
+      const y = (Math.sin(i*1234.7+1.3)*0.5+0.5)*h;
+      const r = ((i%7)+1)*0.22*DPR;
+      bgCtx.beginPath(); bgCtx.arc(x,y,r,0,Math.PI*2); bgCtx.fill();
+    }
+  }
+
+
+  let DPR = 1;
+  function resize() {
+    DPR = Math.max(1, Math.min(1.25, window.devicePixelRatio || 1));
+    canvas.width = Math.floor(canvas.clientWidth * DPR);
+    canvas.height = Math.floor(canvas.clientHeight * DPR);
+    plot.width = Math.floor(plot.clientWidth * DPR);
+    plot.height = Math.floor(plot.clientHeight * DPR);
+
+    bgCanvas.width = canvas.width;
+    bgCanvas.height = canvas.height;
+    rebuildBackground();
+  }
+  window.addEventListener('resize', () => { resize(); reset(); });
+  resize();
+
+  // ===== UI =====
+  const intensity = document.getElementById('intensity');
+  const moderation = document.getElementById('moderation');
+  const absorption = document.getElementById('absorption');
+  const seed = document.getElementById('seed');
+
+  const intensityV = document.getElementById('intensityV');
+  const moderationV = document.getElementById('moderationV');
+  const absorptionV = document.getElementById('absorptionV');
+  const seedV = document.getElementById('seedV');
+
+  const igniteBtn = document.getElementById('ignite');
+  const pauseBtn = document.getElementById('pause');
+  const resetBtn = document.getElementById('reset');
+
+  const fuelEl = document.getElementById('fuel');
+  const powerEl = document.getElementById('power');
+  const tempEl = document.getElementById('temp');
+
+  function syncUI() {
+    intensityV.textContent = (+intensity.value).toFixed(2) + "×";
+    moderationV.textContent = (+moderation.value).toFixed(2);
+    absorptionV.textContent = (+absorption.value).toFixed(2);
+    seedV.textContent = seed.value;
+  }
+  [intensity, moderation, absorption, seed].forEach(el => el.addEventListener('input', syncUI));
+  syncUI();
+
+  // ===== Utilities =====
+  const rand = (a=0,b=1)=>a+Math.random()*(b-a);
+  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+
+  // Color map for "temperature" (0..1)
+  function heatColor(t) {
+    t = clamp(t, 0, 1);
+    // piecewise gradient: deep blue -> cyan -> green -> yellow -> orange -> white
+    const stops = [
+      {t:0.00, c:[40, 70, 255]},
+      {t:0.20, c:[70, 220, 255]},
+      {t:0.45, c:[90, 255, 170]},
+      {t:0.65, c:[255, 245, 120]},
+      {t:0.82, c:[255, 170, 80]},
+      {t:1.00, c:[255, 255, 255]}
+    ];
+    let i=0;
+    while (i<stops.length-1 && t>stops[i+1].t) i++;
+    const a=stops[i], b=stops[i+1];
+    const u=(t-a.t)/Math.max(1e-6,(b.t-a.t));
+    const r=Math.round(a.c[0]+(b.c[0]-a.c[0])*u);
+    const g=Math.round(a.c[1]+(b.c[1]-a.c[1])*u);
+    const bl=Math.round(a.c[2]+(b.c[2]-a.c[2])*u);
+    return {r, g, b: bl};
+  }
+  const rgba=(c,a)=>`rgba(${c.r},${c.g},${c.b},${a})`;
+
+  // ===== Simulation state =====
+  const MAX_NEUTRONS = 1800;   // cap для производительности
+  const MAX_BURSTS = 320;
+  const MAX_WAVES = 200;
+
+
+  // Spatial hash for nuclei (so neutrons actually find fuel reliably)
+  // Cell size ~ spacing of nuclei. Rebuilt on reset (nuclei positions are static).
+
+  let cellSize = 22*DPR;
+  let gridBox = null;
+  let grid = new Map(); // key "cx,cy" -> array of nucleus indices
+
+  function rebuildGrid() {
+    grid.clear();
+    gridBox = box();
+    const B = gridBox;
+    cellSize = 22*DPR;
+    for (let i=0; i<sim.nuclei.length; i++){
+      const nu = sim.nuclei[i];
+      const cx = Math.floor((nu.x - B.x0) / cellSize);
+      const cy = Math.floor((nu.y - B.y0) / cellSize);
+      const key = cx + "," + cy;
+      let arr = grid.get(key);
+      if (!arr) { arr = []; grid.set(key, arr); }
+      arr.push(i);
+    }
+  }
+
+  function findNearbyAliveNucleus(x, y, radius) {
+    if (!gridBox) return null;
+
+    const cx = Math.floor((x - gridBox.x0) / cellSize);
+    const cy = Math.floor((y - gridBox.y0) / cellSize);
+    const r2 = radius * radius;
+
+    let bestIdx = -1;
+    let bestD2 = r2;
+
+    for (let oy=-1; oy<=1; oy++){
+      for (let ox=-1; ox<=1; ox++){
+        const key = (cx+ox) + "," + (cy+oy);
+        const arr = grid.get(key);
+        if (!arr) continue;
+
+        for (let t=0; t<arr.length; t++){
+          const idx = arr[t];
+          const nu = sim.nuclei[idx];
+          if (!nu.alive) continue;
+          const dx = x - nu.x, dy = y - nu.y;
+          const d2 = dx*dx + dy*dy;
+          if (d2 < bestD2) { bestD2 = d2; bestIdx = idx; }
+        }
+      }
+    }
+    return (bestIdx >= 0) ? sim.nuclei[bestIdx] : null;
+  }
+
+  function box() {
+    const w = canvas.width, h = canvas.height;
+    const pad = 26*DPR;
+    return { w, h, x0: pad, y0: pad, x1: w-pad, y1: h-pad };
+  }
+
+  let paused = false;
+
+  const sim = {
+    t: 0,
+    nuclei: [],        // "fuel" sites
+    neutrons: [],
+    bursts: [],        // heat flashes
+    waves: [],         // shock rings
+    eventsRecent: [],  // for "power"
+    avgHeat: 0,
+    ignited: false
+  };
+
+  function reset() {
+    sim.t = 0;
+    sim.neutrons.length = 0;
+    sim.bursts.length = 0;
+    sim.waves.length = 0;
+    sim.eventsRecent.length = 0;
+    sim.avgHeat = 0;
+    sim.ignited = false;
+
+    const B = box();
+    // Populate "fuel" with many nuclei arranged in noisy grid (looks like material)
+    const cols = Math.floor((B.x1-B.x0) / (18*DPR));
+    const rows = Math.floor((B.y1-B.y0) / (18*DPR));
+    const nuclei = [];
+    let id = 0;
+    for (let j=0; j<rows; j++) {
+      for (let i=0; i<cols; i++) {
+        if (Math.random() < 0.05) continue;
+        const x = B.x0 + (i + 0.5) * ((B.x1-B.x0)/cols) + rand(-5,5)*DPR;
+        const y = B.y0 + (j + 0.5) * ((B.y1-B.y0)/rows) + rand(-5,5)*DPR;
+        nuclei.push({
+          id: id++,
+          x, y,
+          alive: true,
+          // "susceptibility" controls how likely neutron causes fission (visual only)
+          k: rand(0.75, 1.25),
+          // local heat (0..1)
+          h: 0
+        });
+      }
+    }
+    sim.nuclei = nuclei;
+    rebuildGrid();
+    updateStats();
+  }
+
+  function addNeutrons(n, where="center") {
+    const B = box();
+    let x0 = (B.x0 + B.x1)/2, y0 = (B.y0 + B.y1)/2;
+    if (where === "random") { x0 = rand(B.x0,B.x1); y0 = rand(B.y0,B.y1); }
+    for (let i=0;i<n;i++){
+      const ang = rand(0, Math.PI*2);
+      const sp = rand(180, 520)*DPR; // fast
+      sim.neutrons.push({
+        x: x0 + rand(-12,12)*DPR,
+        y: y0 + rand(-12,12)*DPR,
+        vx: Math.cos(ang)*sp,
+        vy: Math.sin(ang)*sp,
+        life: 0,
+        ttl: rand(1.4, 3.2),
+        trail: [],
+        // "energy" affects interaction probability (visual)
+        E: rand(0.4, 1.0)
+      });
+    }
+  }
+
+  function fissionAt(nucleus, impactE) {
+    nucleus.alive = false;
+
+    // spawn new neutrons (abstract)
+    const base = 2.5 + (Math.random() < 0.85 ? 0.7 : 0); // ~2.5..3.2
+    const mult = +intensity.value;
+    const nNew = Math.max(1, Math.min(8, Math.round(base * mult * rand(0.85,1.25))));
+    addNeutrons(nNew, "random");
+    // but place around nucleus for coherence
+    for (let k=0;k<Math.min(nNew, sim.neutrons.length);k++){
+      const nn = sim.neutrons[sim.neutrons.length-1-k];
+      nn.x = nucleus.x + rand(-6,6)*DPR;
+      nn.y = nucleus.y + rand(-6,6)*DPR;
+    }
+
+    // heat burst
+    const burstE = clamp(0.45 + 0.85*impactE, 0.2, 1.4);
+    sim.bursts.push({ x:nucleus.x, y:nucleus.y, e:burstE, age:0, ttl: rand(0.45, 1.1) });
+    if (sim.bursts.length > MAX_BURSTS) sim.bursts.shift();
+
+    // shock ring
+    sim.waves.push({ x:nucleus.x, y:nucleus.y, r: 0, age:0, ttl: 0.9 + rand(0,0.4), e: burstE });
+    if (sim.waves.length > MAX_WAVES) sim.waves.shift();
+
+    // register event time for "power"
+    sim.eventsRecent.push(sim.t);
+  }
+
+  function updateStats() {
+    const fuelLeft = sim.nuclei.reduce((acc,n)=>acc + (n.alive?1:0), 0);
+    fuelEl.textContent = fuelLeft.toLocaleString('ru-RU');
+
+    // events per second in last 1.0 sec
+    const window = 1.0;
+    const t0 = sim.t - window;
+    sim.eventsRecent = sim.eventsRecent.filter(t=>t>=t0);
+    const power = sim.eventsRecent.length / window;
+    powerEl.textContent = power.toFixed(1);
+
+    tempEl.textContent = (sim.avgHeat*100).toFixed(0) + "%";
+  }
+
+  // ===== Rendering =====
+  function drawBackground() {
+    const { w, h } = box();
+    ctx.clearRect(0,0,w,h);
+    ctx.drawImage(bgCanvas, 0, 0);
+  }
+
+  function drawContainer() {
+    const B = box();
+    // border
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1*DPR;
+    ctx.strokeRect(B.x0, B.y0, B.x1-B.x0, B.y1-B.y0);
+
+    // faint caption
+    ctx.fillStyle = "rgba(231,236,255,0.55)";
+    ctx.font = `${12*DPR}px system-ui`;
+    ctx.fillText("«Вещество» (абстрактно): ядра + нейтроны + энерговыделение", B.x0 + 10*DPR, B.y0 - 10*DPR);
+  }
+
+  function drawFuel() {
+    // draw remaining nuclei as faint points, heated ones glow
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const n of sim.nuclei) {
+      if (!n.alive) continue;
+      const t = clamp(n.h, 0, 1);
+      const col = heatColor(t*0.9);
+      const a = 0.20 + 0.35*t;
+      const r = (2.0 + 2.6*t)*DPR;
+
+      // glow (дорого): включаем только если ядро заметно нагрето
+
+
+      if (t > 0.18) {
+
+
+        const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, (14 + 20*t)*DPR);
+
+
+        grad.addColorStop(0, rgba(col, 0.12 + 0.25*t));
+
+
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+
+
+        ctx.fillStyle = grad;
+
+
+        ctx.beginPath(); ctx.arc(n.x, n.y, (14 + 20*t)*DPR, 0, Math.PI*2); ctx.fill();
+
+
+      }
+
+      // core
+      ctx.fillStyle = rgba({r:200, g:230, b:255}, a);
+      ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBursts() {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    const burstLimit = 120;
+    for (let bi=0; bi<sim.bursts.length && bi<burstLimit; bi++) {
+      const b = sim.bursts[bi];
+      const t = b.age / b.ttl;
+      const e = b.e;
+      const heat = clamp(e * (1 - t), 0, 1);
+      const col = heatColor(heat);
+      const R = (18 + 120*t*t) * DPR;
+      const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, R);
+      grad.addColorStop(0, rgba(col, 0.38*(1-t)));
+      grad.addColorStop(0.45, rgba(col, 0.12*(1-t)));
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(b.x, b.y, R, 0, Math.PI*2); ctx.fill();
+    }
+
+    // shock rings
+    const waveLimit = 120;
+    for (let wi=0; wi<sim.waves.length && wi<waveLimit; wi++) {
+      const wv = sim.waves[wi];
+      const t = wv.age / wv.ttl;
+      const heat = clamp(wv.e * (1 - t), 0, 1);
+      const col = heatColor(heat);
+      ctx.strokeStyle = rgba(col, 0.28*(1-t));
+      ctx.lineWidth = (1.0 + 2.2*(1-t))*DPR;
+      ctx.beginPath();
+      ctx.arc(wv.x, wv.y, wv.r, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawNeutrons() {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+
+    const many = sim.neutrons.length > 900;
+    for (const n of sim.neutrons) {
+      // trail (дорого): при большом числе нейтронов рисуем только головы
+      const tr = n.trail;
+      if (!many) {
+        for (let i=2;i<tr.length;i+=2){
+        const a = i / tr.length;
+        ctx.strokeStyle = `rgba(160,200,255,${0.22*a})`;
+        ctx.lineWidth = 1.6*DPR;
+        ctx.beginPath();
+        ctx.moveTo(tr[i-1].x, tr[i-1].y);
+        ctx.lineTo(tr[i].x, tr[i].y);
+        ctx.stroke();
+        }
+      }
+      // head
+      ctx.fillStyle = `rgba(180,230,255,0.9)`;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 2.2*DPR, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  // ===== Plot =====
+  const history = [];
+  function pushHistory() {
+    const fuelLeft = sim.nuclei.reduce((acc,n)=>acc + (n.alive?1:0), 0);
+    const t0 = sim.t - 1.0;
+    const recent = sim.eventsRecent.filter(t=>t>=t0);
+    const power = recent.length / 1.0;
+    history.push({t: sim.t, fuel: fuelLeft, power, heat: sim.avgHeat});
+    if (history.length > 500) history.shift();
+  }
+
+  function drawPlot() {
+    const w = plot.width, h = plot.height;
+    pctx.clearRect(0,0,w,h);
+
+    const bg = pctx.createLinearGradient(0,0,0,h);
+    bg.addColorStop(0, "rgba(255,255,255,0.05)");
+    bg.addColorStop(1, "rgba(0,0,0,0)");
+    pctx.fillStyle = bg;
+    pctx.fillRect(0,0,w,h);
+
+    pctx.strokeStyle = "rgba(255,255,255,0.10)";
+    pctx.lineWidth = 1*DPR;
+    pctx.strokeRect(0.5*DPR,0.5*DPR,w-1*DPR,h-1*DPR);
+
+    if (history.length < 2) return;
+
+    const pad = 12*DPR;
+    const tMin = history[0].t;
+    const tMax = history[history.length-1].t;
+    const xForT = (t)=> pad + (t - tMin) / Math.max(1e-6,(tMax - tMin)) * (w - 2*pad);
+
+    const fuel0 = history[0].fuel || 1;
+    const yForFuel = (f)=> h - pad - (f / fuel0) * (h - 2*pad);
+
+    let pMax = 1;
+    for (const s of history) pMax = Math.max(pMax, s.power);
+    const yForPower = (p)=> h - pad - (p / pMax) * (h - 2*pad);
+
+    const yForHeat = (hh)=> h - pad - clamp(hh,0,1) * (h - 2*pad);
+
+    pctx.fillStyle = "rgba(231,236,255,0.70)";
+    pctx.font = `${12*DPR}px system-ui`;
+    pctx.fillText("Топливо", 10*DPR, 18*DPR);
+    pctx.fillText("Мощность", 10*DPR, 36*DPR);
+    pctx.fillText("Температура", 10*DPR, 54*DPR);
+
+    // fuel curve
+    pctx.beginPath();
+    for (let i=0;i<history.length;i++){
+      const s = history[i];
+      const x = xForT(s.t), y = yForFuel(s.fuel);
+      if (i===0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+    }
+    pctx.strokeStyle = "rgba(160,200,255,0.9)";
+    pctx.lineWidth = 2*DPR;
+    pctx.stroke();
+
+    // power curve
+    pctx.beginPath();
+    for (let i=0;i<history.length;i++){
+      const s = history[i];
+      const x = xForT(s.t), y = yForPower(s.power);
+      if (i===0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+    }
+    pctx.strokeStyle = "rgba(255,190,120,0.85)";
+    pctx.lineWidth = 2*DPR;
+    pctx.stroke();
+
+    // heat curve
+    pctx.beginPath();
+    for (let i=0;i<history.length;i++){
+      const s = history[i];
+      const x = xForT(s.t), y = yForHeat(s.heat);
+      if (i===0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+    }
+    pctx.strokeStyle = "rgba(190,255,150,0.78)";
+    pctx.lineWidth = 2*DPR;
+    pctx.stroke();
+  }
+
+  // ===== Physics-ish update (abstract) =====
+  function update(dt) {
+    sim.t += dt;
+
+    const B = box();
+    const mod = +moderation.value; // 0..1
+    const abs = +absorption.value; // 0..1
+
+    // heat decay in nuclei (for glow)
+    let heatSum = 0, heatCount = 0;
+    for (const n of sim.nuclei) {
+      n.h *= Math.exp(-dt*1.3);
+      if (n.alive) { heatSum += n.h; heatCount++; }
+    }
+
+    // bursts + waves
+    for (let i=sim.bursts.length-1;i>=0;i--){
+      const b = sim.bursts[i];
+      b.age += dt;
+      if (b.age >= b.ttl) sim.bursts.splice(i,1);
+    }
+    for (let i=sim.waves.length-1;i>=0;i--){
+      const wv = sim.waves[i];
+      wv.age += dt;
+      wv.r += (220 + 520*wv.e) * dt * DPR;
+      if (wv.age >= wv.ttl) sim.waves.splice(i,1);
+    }
+
+    // update neutrons
+    const next = [];
+    for (const n of sim.neutrons) {
+      n.life += dt;
+
+      // moderation: gradually reduce speed and "energy"
+      const slow = 1 - 0.7*mod*dt;
+      n.vx *= slow; n.vy *= slow;
+      n.E = clamp(n.E * (1 - 0.65*mod*dt) + 0.02*mod*dt, 0.05, 1.0);
+
+      // random scattering (makes paths pretty)
+      const scat = 0.6 + 1.6*(1-n.E);
+      n.vx += rand(-1,1) * scat * 32 * dt * DPR;
+      n.vy += rand(-1,1) * scat * 32 * dt * DPR;
+
+      n.x += n.vx * dt;
+      n.y += n.vy * dt;
+
+      // reflect boundaries (container)
+      if (n.x < B.x0) { n.x = B.x0; n.vx *= -1; }
+      if (n.x > B.x1) { n.x = B.x1; n.vx *= -1; }
+      if (n.y < B.y0) { n.y = B.y0; n.vy *= -1; }
+      if (n.y > B.y1) { n.y = B.y1; n.vy *= -1; }
+
+      // trail
+      n.trail.push({x:n.x, y:n.y});
+      if (n.trail.length > 22) n.trail.shift();
+
+      // absorption (neutron disappears)
+      const absorbProb = abs * 0.35 * dt * (0.6 + 0.9*(1-n.E));
+      if (Math.random() < absorbProb) continue;
+      // interactions: ищем ближайшее живое ядро (быстро и стабильно)
+      let interacted = false;
+      const nu = findNearbyAliveNucleus(n.x, n.y, 10*DPR);
+      if (nu) {
+        // вероятность деления: «ручная» настройка для наглядности
+        const base = 0.95 * (+intensity.value) * nu.k * (0.55 + 0.90*n.E);
+        const p = clamp(base * dt * 9.0, 0, 0.95);
+
+        if (Math.random() < p) {
+          nu.h = clamp(nu.h + 0.55 + 0.55*n.E, 0, 1.3);
+          fissionAt(nu, n.E);
+          interacted = true;
+        } else {
+          nu.h = clamp(nu.h + 0.06*(0.6+n.E), 0, 1.0);
+        }
+      }
+
+      // keep neutron unless too old or we exceeded cap
+      const alive = n.life < n.ttl;
+      if (alive && !interacted) next.push(n);
+      if (next.length > MAX_NEUTRONS) break; // cap
+    }
+    sim.neutrons = next;
+
+    // compute average heat
+    sim.avgHeat = (heatCount>0) ? clamp(heatSum/heatCount, 0, 1) : 0;
+
+    // power history and stats
+    if (history.length === 0 || sim.t - history[history.length-1].t >= 0.08) pushHistory();
+    updateStats();
+
+    // if "fuel" almost gone, dampen neutrons for graceful fade
+    const fuelLeft = sim.nuclei.reduce((acc,n)=>acc + (n.alive?1:0), 0);
+    if (fuelLeft < Math.max(10, sim.nuclei.length*0.015)) {
+      for (const n of sim.neutrons) { n.vx *= 0.98; n.vy *= 0.98; }
+    }
+  }
+
+  // ===== Buttons =====
+  igniteBtn.addEventListener('click', () => {
+    if (!sim.ignited) sim.ignited = true;
+    addNeutrons(+seed.value, "center");
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? "Продолжить" : "Пауза";
+  });
+
+  resetBtn.addEventListener('click', () => reset());
+
+  // ===== Loop =====
+  let last = performance.now();
+  let plotTimer = 0;
+  function frame(now) {
+    const dtReal = Math.min(0.033, (now-last)/1000);
+    last = now;
+
+    // gentle time dilation for "drama"
+    const dt = dtReal * (0.85 + 0.75*(+intensity.value));
+
+    if (!paused) update(dt);
+
+    drawBackground();
+    drawContainer();
+    drawBursts();
+    drawFuel();
+    drawNeutrons();
+    plotTimer += dtReal;
+    if (plotTimer > 0.12) { drawPlot(); plotTimer = 0; }
+
+    requestAnimationFrame(frame);
+  }
+
+  reset();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

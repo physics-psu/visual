@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Электрическое поле диполя — теория и визуализация</title>
+  <link rel="stylesheet" href="../assets/site.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html">
+        <span>Интерактивный справочник</span>
+        <span class="badge">тема • диполь</span>
+      </a>
+      <nav class="nav">
+        <a href="../index.html#topics">Каталог</a>
+        <a href="#viz">Визуализация</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="breadcrumb"><a href="../index.html">Главная</a> → Электрическое поле диполя</div>
+
+    <article class="article">
+      <h1>Электрическое поле диполя</h1>
+      <p><b>Электрическое поле</b> — это «карта сил» в пространстве: в каждой точке задаётся вектор <span class="formula">E</span>, который показывает, куда и с какой силой толкнёт <i>положительный</i> пробный заряд.</p>
+
+      <div class="kv">
+        <div class="callout">
+          <h3>Ключевые формулы</h3>
+          <ul>
+            <li>Определение: <span class="formula">E = F / q</span></li>
+            <li>Поле точечного заряда: <span class="formula">E(r) = (1 / (4πϵ₀)) · q / r²</span> (направлено от «+» и к «−»)</li>
+            <li>Дипольный момент: <span class="formula">p = q · d</span> (вектор от «−» к «+»)</li>
+            <li>Далеко от диполя: <span class="formula">|E| ∝ 1 / r³</span> (убывает быстрее, чем у одного заряда <span class="formula">1/r²</span>)</li>
+          </ul>
+        </div>
+        <div class="callout">
+          <h3>Как понимать рисунки</h3>
+          <ul>
+            <li><b>Линии поля</b> касательны к <span class="formula">E</span> в каждой точке.</li>
+            <li>Линии выходят из положительного заряда и входят в отрицательный.</li>
+            <li>Густота линий (и длина стрелок-векторов) отражает «силу» поля.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Что такое диполь и зачем он нужен</h3>
+      <p><b>Электрический диполь</b> — это две точечные зарядовые «точки» <span class="formula">+q</span> и <span class="formula">−q</span>, разделённые небольшим расстоянием <span class="formula">d</span>. Это простая модель полярных молекул, поляризации диэлектрика и многих задач электростатики.</p>
+
+      <h3>На что влияет изменение параметров</h3>
+      <ul>
+        <li>Если увеличить <span class="formula">|q|</span>, поле становится сильнее (векторы больше, линии «плотнее»).</li>
+        <li>Если сделать заряды одинакового знака, получится не диполь, а две «одинаковые» точки поля — линии будут вести себя иначе.</li>
+        <li>Если убрать линии и оставить векторы (или наоборот), можно тренироваться «читать» поле разными способами.</li>
+      </ul>
+
+      <h3 id="viz">Визуализация</h3>
+      <p>После теории — переход на интерактивную страницу. Рекомендуется открыть в новой вкладке.</p>
+      <div class="actions">
+        <a class="btn" href="../visualizations/Kylon.html" target="_blank" rel="noopener">Открыть визуализацию ↗</a>
+        <a class="btn secondary" href="../index.html#topics">← Назад в каталог</a>
+      </div>
+
+      <details class="details">
+        <summary>Показать визуализацию прямо здесь (iframe)</summary>
+        <div class="inner">
+          <p>Если картинка кажется маленькой — открой «↗» в новой вкладке.</p>
+          <iframe class="embed" src="../visualizations/Kylon.html" title="Электрическое поле диполя"></iframe>
+        </div>
+      </details>
+    </article>
+
+    <footer class="footer">
+      <div>Подсказка: поле показывает силу на <b>положительный</b> пробный заряд; для отрицательного направление будет противоположным.</div>
+    </footer>
+  </main>
+</body>
+</html>

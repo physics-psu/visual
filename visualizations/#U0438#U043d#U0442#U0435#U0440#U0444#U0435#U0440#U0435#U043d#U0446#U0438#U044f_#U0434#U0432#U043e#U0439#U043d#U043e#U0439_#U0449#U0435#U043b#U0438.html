@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Интерференция: двойная щель 2D</title>
+<style>
+ body{margin:0;background:#0f1724;color:#e6eef8;font-family:Inter,Arial}
+ .app{display:grid;grid-template-columns:320px 1fr;gap:16px;height:100vh;padding:16px;box-sizing:border-box}
+ .panel{background:#0b1220;padding:14px;border-radius:12px;overflow:auto}
+ h1{font-size:18px;margin:0 0 10px}
+ label{display:block;font-size:13px;margin-top:10px;color:#94a3b8}
+ .row{display:flex;gap:8px;align-items:center}
+ input[type=range]{width:100%}
+ input[type=number]{width:100px;background:transparent;border:1px solid #ffffff22;border-radius:6px;padding:4px;color:#e6eef8}
+ canvas{background:#041021;border-radius:12px;width:100%;height:100%}
+ .btn{margin-top:10px;padding:6px 10px;background:#1e293b;border:none;border-radius:6px;color:#e6eef8;cursor:pointer;width:100%}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="panel">
+    <h1>Интерференция: двойная щель</h1>
+
+    <button id="modeBtn" class="btn">Переключить режим: Схема / Интерференция</button>
+
+    <div id="controls">
+      <label>Расстояние между щелями d (мм)
+        <div class="row"><input id="dR" type="range" min="0.1" max="5" step="0.1" value="1" /><input id="dN" type="number" step="0.1" value="1" /></div>
+      </label>
+      <label>Расстояние до экрана L (мм)
+        <div class="row"><input id="LR" type="range" min="50" max="500" step="10" value="200" /><input id="LN" type="number" step="10" value="200" /></div>
+      </label>
+      <label>Яркость интерференции
+        <div class="row"><input id="BR" type="range" min="0.5" max="3" step="0.1" value="1.5" /><input id="BN" type="number" step="0.1" value="1.5" /></div>
+      </label>
+      <label>Длина волны λ (нм)
+        <div class="row"><input id="lambdaR" type="range" min="350" max="750" value="550" /><input id="lambdaN" type="number" value="550" /></div>
+      </label>
+    </div>
+
+  </div>
+  <canvas id="cv"></canvas>
+</div>
+
+<script>
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+
+let mode='schema';
+const modeBtn=document.getElementById('modeBtn');
+modeBtn.addEventListener('click',()=>{
+  mode=(mode==='schema')?'interference':'schema';
+  draw();
+});
+
+const dR_el=document.getElementById('dR');
+const dN_el=document.getElementById('dN');
+const LR_el=document.getElementById('LR');
+const LN_el=document.getElementById('LN');
+const BR_el=document.getElementById('BR');
+const BN_el=document.getElementById('BN');
+const lambdaR_el=document.getElementById('lambdaR');
+const lambdaN_el=document.getElementById('lambdaN');
+
+function link(a,b){
+ a.addEventListener('input',()=>{b.value=a.value;draw();});
+ b.addEventListener('change',()=>{a.value=b.value;draw();});
+}
+link(dR_el,dN_el); link(LR_el,LN_el); link(BR_el,BN_el); link(lambdaR_el,lambdaN_el);
+
+function fit(){
+  cv.width=cv.clientWidth*devicePixelRatio;
+  cv.height=cv.clientHeight*devicePixelRatio;
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)
+}
+window.addEventListener('resize',()=>{fit();draw();});
+fit();
+
+function draw(){
+ ctx.clearRect(0,0,cv.width,cv.height);
+ const W=cv.clientWidth, H=cv.clientHeight;
+
+ const d_mm=parseFloat(dN_el.value);
+ const L_mm=parseFloat(LN_el.value);
+ const B=parseFloat(BN_el.value);
+ const λ=parseFloat(lambdaN_el.value)*1e-9;
+
+  const scale_mm_to_px = 2;
+
+ if(mode==='schema'){
+   const slitX=50;
+   const centerY=H/2;
+
+   const d_px=d_mm * scale_mm_to_px;
+   const L_px=L_mm * scale_mm_to_px;
+
+   let screenX = slitX + L_px;
+   screenX = Math.min(screenX, W - 40); 
+      ctx.fillStyle='#9bdcff';
+   ctx.fillRect(slitX, centerY - d_px/2 - 5, 10, 10);
+   ctx.fillRect(slitX, centerY + d_px/2 - 5, 10, 10);
+
+      ctx.strokeStyle='rgba(255,255,255,0.3)';
+   ctx.beginPath();
+   ctx.moveTo(slitX+5, centerY - d_px/2);
+   ctx.lineTo(screenX, centerY);
+   ctx.stroke();
+
+   ctx.beginPath();
+   ctx.moveTo(slitX+5, centerY + d_px/2);
+   ctx.lineTo(screenX, centerY);
+   ctx.stroke();
+
+      ctx.fillStyle='#ffffff33';
+   ctx.fillRect(screenX, centerY - 100, 4, 200);
+ }
+
+ else {
+   const center=W/2;
+   const scale=400;
+   for(let x=0;x<W;x++){
+     let y=(x-center)/scale;
+     let sinθ=y/(L_mm*1e-3);
+     let phase=Math.PI*(d_mm*1e-3)*sinθ/λ;
+     let I=B*Math.cos(phase)**2;
+     let c=Math.min(255,Math.floor(I*255));
+     ctx.fillStyle=`rgb(${c},${c},${c})`;
+     ctx.fillRect(x,0,1,H);
+   }
+ }
+}
+
+draw();
+</script>
+</body>
+</html>

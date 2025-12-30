@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Тонкая линза — теория и визуализация</title>
+  <link rel="stylesheet" href="../assets/site.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html">
+        <span>Интерактивный справочник</span>
+        <span class="badge">тема • линзы</span>
+      </a>
+      <nav class="nav">
+        <a href="../index.html#topics">Каталог</a>
+        <a href="#viz">Визуализация</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="breadcrumb"><a href="../index.html">Главная</a> → Тонкая линза</div>
+
+    <article class="article">
+      <h1>Тонкая линза (геометрическая оптика)</h1>
+      <p><b>Тонкая линза</b> — приближение, в котором толщиной линзы пренебрегают, а преломление «сводят» к одной плоскости. Это позволяет строить изображения лучами и пользоваться простым уравнением.</p>
+
+      <div class="kv">
+        <div class="callout">
+          <h3>Ключевые формулы</h3>
+          <ul>
+            <li>Линзовое уравнение: <span class="formula">1/f = 1/dₒ + 1/dᵢ</span></li>
+            <li>Увеличение: <span class="formula">M = hᵢ/hₒ = -dᵢ/dₒ</span></li>
+          </ul>
+          <p>Здесь <span class="formula">f</span> — фокусное расстояние, <span class="formula">dₒ</span> — расстояние до предмета, <span class="formula">dᵢ</span> — до изображения.</p>
+        </div>
+        <div class="callout">
+          <h3>Знаки и смысл</h3>
+          <ul>
+            <li><span class="formula">f &gt; 0</span> — собирающая линза, <span class="formula">f &lt; 0</span> — рассеивающая.</li>
+            <li>Если <span class="formula">dᵢ &gt; 0</span>, изображение действительное (можно «поймать на экран»).</li>
+            <li>Если <span class="formula">dᵢ &lt; 0</span>, изображение мнимое (видно «как будто» за линзой).</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Три «главных» луча для построения</h3>
+      <ul>
+        <li>Луч, параллельный оптической оси → после линзы проходит через фокус.</li>
+        <li>Луч через оптический центр → идёт почти прямолинейно.</li>
+        <li>Луч через фокус → после линзы идёт параллельно оси.</li>
+      </ul>
+
+      <h3>Что можно менять в визуализации</h3>
+      <ul>
+        <li><span class="formula">f</span> — фокус: попробуй положительный и отрицательный.</li>
+        <li><span class="formula">dₒ</span> — положение предмета: приблизь к фокусу и посмотри, что происходит с <span class="formula">dᵢ</span>.</li>
+        <li>Высота предмета <span class="formula">h</span> и переключатель «показывать лучи».</li>
+      </ul>
+
+      <h3 id="viz">Визуализация</h3>
+      <div class="actions">
+        <a class="btn" href="../visualizations/thin_lens.html" target="_blank" rel="noopener">Открыть визуализацию ↗</a>
+        <a class="btn secondary" href="../index.html#topics">← Назад в каталог</a>
+      </div>
+
+      <details class="details">
+        <summary>Показать визуализацию прямо здесь (iframe)</summary>
+        <div class="inner">
+          <iframe class="embed" src="../visualizations/thin_lens.html" title="Тонкая линза"></iframe>
+        </div>
+      </details>
+    </article>
+
+    <footer class="footer">
+      <div>Идея на будущее: добавить формулу производителя линз и показать, как <span class="formula">f</span> зависит от радиусов кривизны и показателя преломления.</div>
+    </footer>
+  </main>
+</body>
+</html>

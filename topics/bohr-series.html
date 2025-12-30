@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Модель Бора и спектральные серии — теория и визуализация</title>
+  <link rel="stylesheet" href="../assets/site.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <a class="brand" href="../index.html">
+        <span>Интерактивный справочник</span>
+        <span class="badge">тема • модель Бора</span>
+      </a>
+      <nav class="nav">
+        <a href="../index.html#topics">Каталог</a>
+        <a href="#viz">Визуализация</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="breadcrumb"><a href="../index.html">Главная</a> → Модель Бора и серии</div>
+
+    <article class="article">
+      <h1>Модель Бора и спектральные серии водорода</h1>
+      <p><b>Модель Бора</b> — ранняя квантовая модель атома: электрон может находиться только на определённых энергетических уровнях, а при переходе между уровнями испускает или поглощает фотон.</p>
+
+      <div class="kv">
+        <div class="callout">
+          <h3>Энергетические уровни</h3>
+          <ul>
+            <li>Для водорода (приближённо): <span class="formula">Eₙ = -13.6 эВ / n²</span></li>
+            <li>Переход: <span class="formula">ΔE = E_{n₂} - E_{n₁}</span></li>
+            <li>Фотон: <span class="formula">ΔE = hν = hc/λ</span></li>
+          </ul>
+        </div>
+        <div class="callout">
+          <h3>Формула Ридберга</h3>
+          <p>Для линий спектра водорода:</p>
+          <p class="formula">1/λ = R_H · (1/n₁² − 1/n₂²),
+          где n₂ &gt; n₁</p>
+          <p>Здесь <span class="formula">R_H</span> — постоянная Ридберга, <span class="formula">n₁</span> — «нижний» уровень серии.</p>
+        </div>
+      </div>
+
+      <h3>Что такое «серии»</h3>
+      <ul>
+        <li><b>Лаймана</b>: переходы на <span class="formula">n₁ = 1</span> (обычно УФ).</li>
+        <li><b>Бальмера</b>: переходы на <span class="formula">n₁ = 2</span> (часть линий — видимый диапазон).</li>
+        <li><b>Пашена</b>: переходы на <span class="formula">n₁ = 3</span> (обычно ИК).</li>
+      </ul>
+
+      <h3>Испускание и поглощение</h3>
+      <p><b>Испускание</b>: электрон «падает» на более низкий уровень (<span class="formula">n</span> уменьшается) и излучает фотон. <b>Поглощение</b>: электрон получает фотон и «поднимается» выше.</p>
+
+      <h3>Что можно менять в визуализации</h3>
+      <ul>
+        <li>Выбор серии (Лайман/Бальмер/Пашен).</li>
+        <li>Режим: испускание или поглощение.</li>
+        <li>Верхний уровень <span class="formula">n₂</span> — откуда идёт переход.</li>
+        <li>Скорость анимации.</li>
+      </ul>
+
+      <h3 id="viz">Визуализация</h3>
+      <div class="actions">
+        <a class="btn" href="../visualizations/bohr_series.html" target="_blank" rel="noopener">Открыть визуализацию ↗</a>
+        <a class="btn secondary" href="../index.html#topics">← Назад в каталог</a>
+      </div>
+
+      <details class="details">
+        <summary>Показать визуализацию прямо здесь (iframe)</summary>
+        <div class="inner">
+          <iframe class="embed" src="../visualizations/bohr_series.html" title="Модель Бора и спектральные серии"></iframe>
+        </div>
+      </details>
+    </article>
+
+    <footer class="footer">
+      <div>Важно: модель Бора — упрощение. Но она отлично объясняет, почему у водорода дискретные линии спектра.</div>
+    </footer>
+  </main>
+</body>
+</html>

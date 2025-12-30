@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Интерференция двух лазеров (центрированная)</title>
+<style>
+ body{margin:0;background:#0f1724;color:#e6eef8;font-family:Arial}
+ .app{display:grid;grid-template-columns:260px 1fr;gap:16px;height:100vh;padding:16px;box-sizing:border-box}
+ .panel{background:#0b1220;padding:14px;border-radius:12px;overflow:auto}
+ h1{margin:0 0 10px;font-size:18px}
+ label{display:block;margin-top:10px;font-size:13px}
+ .row{display:flex;gap:8px;align-items:center}
+ input[type=range]{width:100%}
+ input[type=number]{width:70px;background:#0002;border:1px solid #fff3;color:white;padding:4px;border-radius:6px}
+ canvas{background:#000;border-radius:12px;width:100%;height:100%}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="panel">
+    <h1>Интерференция</h1>
+
+    <label>Расстояние между источниками d (px)
+      <div class="row">
+        <input id="dR" type="range" min="10" max="300" value="150">
+        <input id="dN" type="number" value="150">
+      </div>
+    </label>
+
+    <label>Длина волны λ (px)
+      <div class="row">
+        <input id="lR" type="range" min="20" max="300" value="120">
+        <input id="lN" type="number" value="120">
+      </div>
+    </label>
+
+    <label>Интенсивность
+      <div class="row">
+        <input id="bR" type="range" min="0.2" max="3" step="0.1" value="1.2">
+        <input id="bN" type="number" value="1.2">
+      </div>
+    </label>
+
+  </div>
+
+  <canvas id="cv"></canvas>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+function fit(){
+  cv.width  = cv.clientWidth;
+  cv.height = cv.clientHeight;
+}
+window.addEventListener("resize", ()=>{fit(); draw();});
+fit();
+
+function link(a,b){ 
+  a.oninput=()=>{b.value=a.value; draw()};
+  b.onchange=()=>{a.value=b.value; draw()};
+}
+link(dR, dN); link(lR, lN); link(bR, bN);
+
+function draw(){
+  const W=cv.width, H=cv.height;
+  const cx=W/2, cy=H/2;
+
+  const d = parseFloat(dN.value);  
+  const λ = parseFloat(lN.value);  
+  const B = parseFloat(bN.value);
+
+  const k = 2*Math.PI / λ;
+
+  const x1 = cx - d/2;
+  const x2 = cx + d/2;
+  const yS = cy;
+
+  const img = ctx.getImageData(0,0,W,H);
+  const data = img.data;
+
+  for(let y=0; y<H; y++){
+    for(let x=0; x<W; x++){
+
+      let r1 = Math.sqrt( (x - x1)**2 + (y - yS)**2 );
+      let r2 = Math.sqrt( (x - x2)**2 + (y - yS)**2 );
+
+      let phase = k * (r1 - r2);
+
+      let I = (1 + Math.cos(phase)) * 0.5 * B;
+      if(I > 1) I = 1;
+
+      let c = I * 255;
+
+      let id = (y*W + x)*4;
+      data[id] = data[id+1] = data[id+2] = c;
+      data[id+3] = 255;
+    }
+  }
+
+  ctx.putImageData(img,0,0);
+}
+
+draw();
+</script>
+
+</body>
+</html>
